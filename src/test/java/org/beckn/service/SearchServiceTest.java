@@ -138,14 +138,40 @@ class SearchServiceTest {
         var request = createSearchRequest();
         var filter = new SearchRequest.Filter();
         filter.setType("and");
+        
+        // First field group (OR condition)
         var field1 = new SearchRequest.Field();
-        field1.setName("tags");
-        field1.setOp("in");
-        field1.setValue(List.of("coffee"));
+        field1.setType("or");
+        var field1_1 = new SearchRequest.Field();
+        field1_1.setName("tags");
+        field1_1.setOp("in");
+        field1_1.setValue(List.of("coffee"));
+        var field1_2 = new SearchRequest.Field();
+        field1_2.setType("and");
+        var field1_2_1 = new SearchRequest.Field();
+        field1_2_1.setName("name");
+        field1_2_1.setOp("eq");
+        field1_2_1.setValue("Third Wave Coffee");
+        var field1_2_2 = new SearchRequest.Field();
+        field1_2_2.setName("coffeeTypes");
+        field1_2_2.setOp("in");
+        field1_2_2.setValue(List.of("Americano"));
+        field1_2.setFields(List.of(field1_2_1, field1_2_2));
+        field1.setFields(List.of(field1_1, field1_2));
+        
+        // Second field group (AND condition)
         var field2 = new SearchRequest.Field();
-        field2.setName("coffeeTypes");
-        field2.setOp("in");
-        field2.setValue(List.of("americano"));
+        field2.setType("and");
+        var field2_1 = new SearchRequest.Field();
+        field2_1.setName("city");
+        field2_1.setOp("eq");
+        field2_1.setValue("Bangalore");
+        var field2_2 = new SearchRequest.Field();
+        field2_2.setName("state");
+        field2_2.setOp("eq");
+        field2_2.setValue("Karnataka");
+        field2.setFields(List.of(field2_1, field2_2));
+        
         filter.setFields(List.of(field1, field2));
         request.getRequest().getSearch().setFilters(List.of(filter));
         
@@ -154,6 +180,39 @@ class SearchServiceTest {
         assertNotNull(result);
         System.out.println("Test result...");
         System.out.println(result.getSearchHits().get(0));
+        assertEquals(1, result.getTotalHits());
+    }
+
+    @Test
+    void testFilterSearch1() {
+        var request = createSearchRequest();
+        var filter = new SearchRequest.Filter();
+        filter.setType("and");
+
+        // Create simple field conditions without nesting
+        var field1 = new SearchRequest.Field();
+        field1.setName("tags");
+        field1.setOp("in");
+        field1.setValue(List.of("coffee"));
+
+        var field2 = new SearchRequest.Field();
+        field2.setName("coffeeTypes");
+        field2.setOp("in");
+        field2.setValue(List.of("Americano"));
+
+        filter.setFields(List.of(field1, field2));
+        request.getRequest().getSearch().setFilters(List.of(filter));
+
+        var result = searchService.search(request);
+
+        assertNotNull(result);
+        System.out.println("Test result...");
+        System.out.println("Total hits: " + result.getTotalHits());
+        if (result.getTotalHits() > 0) {
+            System.out.println(result.getSearchHits().get(0));
+        } else {
+            System.out.println("No results found");
+        }
         assertEquals(1, result.getTotalHits());
     }
 

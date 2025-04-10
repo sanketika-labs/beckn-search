@@ -21,24 +21,28 @@
       },
       "filters": [
         {
-          "type": "or",
+          "type": "and",
           "fields": [
-            { "name": "field1", "op": "eq", "value": "domain1" },
+            {
+              "type": "or",
+              "fields": [
+                { "name": "field1", "op": "eq", "value": "domain1" },
+                {
+                  "type": "and",
+                  "fields": [
+                    { "name": "item.descriptor.name", "op": "eq", "value": "item1" },
+                    { "name": "tags", "op": "in", "value": ["tag1", "tag2"] }
+                  ]
+                }
+              ]
+            },
             {
               "type": "and",
               "fields": [
-                { "name": "item.descriptor.name", "op": "eq", "value": "item1" },
-                { "name": "tags", "op": "in", "value": ["tag1", "tag2"] }
+                { "name": "field2", "op": "eq", "value": "value2" },
+                { "name": "field3", "op": "lt", "value": "value3" }
               ]
             }
-          ]
-        },
-        {
-          "type": "and",
-          "fields": [
-            { "name": "field2", "op": "eq", "value": "value2" },
-            { "name": "field3", "op": "lt", "value": "value3" },
-            { "name": "field4", "op": "gt", "value": "value3" }
           ]
         }
       ],
