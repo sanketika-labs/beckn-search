@@ -22,7 +22,16 @@ public class SearchDocument {
     @Field(type = FieldType.Text)
     private String description;
 
-    @Field(type = FieldType.Keyword)
+    @Field(type = FieldType.Text)
+    private String city;
+
+    @Field(type = FieldType.Text)
+    private String state;
+
+    @Field(type = FieldType.Text)
+    private List<String> coffeeTypes;
+
+    @Field(type = FieldType.Text)
     private List<String> tags;
 
     @GeoPointField
@@ -55,6 +64,30 @@ public class SearchDocument {
 
     public List<String> getTags() {
         return tags;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public List<String> getCoffeeTypes() {
+        return coffeeTypes;
+    }
+
+    public void setCoffeeTypes(List<String> coffeeTypes) {
+        this.coffeeTypes = coffeeTypes;
     }
 
     public void setTags(List<String> tags) {

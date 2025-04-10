@@ -9,14 +9,16 @@ import lombok.RequiredArgsConstructor;
 import org.beckn.model.SearchDocument;
 import org.beckn.model.SearchRequest;
 import org.beckn.service.SearchService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsImpl;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.Query;
-import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
-import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
 public class SearchServiceImpl implements SearchService {
 
     private final ElasticsearchTemplate elasticsearchTemplate;
+    private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
 
     @Override
     public SearchHits<SearchDocument> search(SearchRequest request) {
@@ -54,20 +57,23 @@ public class SearchServiceImpl implements SearchService {
                         .build())
                 .build();
 
-        Criteria criteria = new Criteria();
-        Query searchQuery = new CriteriaQuery(criteria);
-        searchQuery.setPageable(org.springframework.data.domain.PageRequest.of(
-                request.getRequest().getSearch().getPage().getFrom(),
-                request.getRequest().getSearch().getPage().getSize()));
+        // Create native search query
+        Query searchQuery = new NativeQueryBuilder()
+                .withQuery(boolQuery)
+                .withPageable(org.springframework.data.domain.PageRequest.of(
+                        request.getRequest().getSearch().getPage().getFrom(),
+                        request.getRequest().getSearch().getPage().getSize()))
+                .build();
 
-        return elasticsearchTemplate.search(searchQuery, SearchDocument.class);
+        return elasticsearchTemplate.search(searchQuery, SearchDocument.class, IndexCoordinates.of("retail"));
     }
 
     private co.elastic.clients.elasticsearch._types.query_dsl.Query createTextQuery(String text) {
         return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                 .multiMatch(new MultiMatchQuery.Builder()
                         .query(text)
-                        .fields("name", "description")
+                        // .fields(List.of("name^3", "description^2", "coffeeTypes"))
+                        .fields(List.of("name", "description", "coffeeTypes"))
                         .type(TextQueryType.BestFields)
                         .build())
                 .build();
