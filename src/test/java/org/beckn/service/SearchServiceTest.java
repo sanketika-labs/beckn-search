@@ -1,22 +1,32 @@
 package org.beckn.service;
 
-import org.beckn.model.SearchRequest;
+import co.elastic.clients.elasticsearch._types.GeoLocation;
+import co.elastic.clients.elasticsearch._types.LatLonGeoLocation;
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.json.JsonData;
+import lombok.RequiredArgsConstructor;
 import org.beckn.model.SearchDocument;
+import org.beckn.model.SearchRequest;
+import org.beckn.service.impl.SearchServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.data.elasticsearch.core.query.Query;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,15 +49,8 @@ class SearchServiceTest {
     .withEnv("xpack.security.enabled", "false")
     .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m");
 
-    @DynamicPropertySource
-    static void elasticsearchProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.elasticsearch.uris", elasticsearchContainer::getHttpHostAddress);
-        registry.add("spring.elasticsearch.username", () -> "elastic");
-        registry.add("spring.elasticsearch.password", () -> "changeme");
-    }
-
     @Autowired
-    private SearchService searchService;
+    private SearchServiceImpl searchService;
 
     @Autowired
     private ElasticsearchTemplate elasticsearchTemplate;
@@ -110,9 +113,9 @@ class SearchServiceTest {
         
         assertNotNull(result);
         System.out.println("Test result...");
-        System.out.println(result.getSearchHits().get(0));
-        System.out.println(result.getSearchHits().get(1));
-        assertEquals(2, result.getTotalHits());
+        System.out.println(result.get(0));
+        System.out.println(result.get(1));
+        assertEquals(2, result.size());
     }
 
     @Test
@@ -130,8 +133,8 @@ class SearchServiceTest {
         var result = searchService.search(request);
         
         assertNotNull(result);
-        SearchDocument resultDoc = result.getSearchHits().get(0).getContent();
-        assertEquals(1, result.getTotalHits());
+        SearchDocument resultDoc = result.get(0);
+        assertEquals(1, result.size());
         assertEquals("Third Wave Coffee", resultDoc.getName());
     }
 
@@ -181,8 +184,8 @@ class SearchServiceTest {
         
         assertNotNull(result);
         System.out.println("Test result...");
-        System.out.println(result.getSearchHits().get(0));
-        assertEquals(1, result.getTotalHits());
+        System.out.println(result.get(0));
+        assertEquals(1, result.size());
     }
 
     @Test
@@ -209,13 +212,13 @@ class SearchServiceTest {
 
         assertNotNull(result);
         System.out.println("Test result...");
-        System.out.println("Total hits: " + result.getTotalHits());
-        if (result.getTotalHits() > 0) {
-            System.out.println(result.getSearchHits().get(0));
+        System.out.println("Total hits: " + result.size());
+        if (result.size() > 0) {
+            System.out.println(result.get(0));
         } else {
             System.out.println("No results found");
         }
-        assertEquals(1, result.getTotalHits());
+        assertEquals(1, result.size());
     }
 
     private SearchRequest createSearchRequest() {

@@ -37,7 +37,7 @@ public class SearchServiceImpl implements SearchService {
     private List<String> fulltextSearchColumns;
 
     @Override
-    public SearchHits<SearchDocument> search(SearchRequest request) {
+    public List<SearchDocument> search(SearchRequest request) {
         List<co.elastic.clients.elasticsearch._types.query_dsl.Query> queries = new ArrayList<>();
         
         // Text search
@@ -70,7 +70,10 @@ public class SearchServiceImpl implements SearchService {
                 .build();
 
         logger.debug("Generated query: {}", boolQuery.toString());
-        return elasticsearchTemplate.search(searchQuery, SearchDocument.class, IndexCoordinates.of("retail"));
+        SearchHits<SearchDocument> searchHits = elasticsearchTemplate.search(searchQuery, SearchDocument.class, IndexCoordinates.of("retail"));
+        return searchHits.getSearchHits().stream()
+                .map(SearchHit::getContent)
+                .collect(Collectors.toList());
     }
 
     private co.elastic.clients.elasticsearch._types.query_dsl.Query createTextQuery(String text) {
