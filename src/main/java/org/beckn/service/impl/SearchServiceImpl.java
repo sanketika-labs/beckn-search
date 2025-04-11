@@ -9,14 +9,17 @@ import lombok.RequiredArgsConstructor;
 import org.beckn.model.SearchDocument;
 import org.beckn.model.SearchRequest;
 import org.beckn.service.SearchService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsImpl;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.Query;
-import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
-import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,6 +31,10 @@ import java.util.stream.Collectors;
 public class SearchServiceImpl implements SearchService {
 
     private final ElasticsearchTemplate elasticsearchTemplate;
+    private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
+
+    @Value("${beck.fulltext.search.columns}")
+    private List<String> fulltextSearchColumns;
 
     @Override
     public SearchHits<SearchDocument> search(SearchRequest request) {
@@ -54,20 +61,23 @@ public class SearchServiceImpl implements SearchService {
                         .build())
                 .build();
 
-        Criteria criteria = new Criteria();
-        Query searchQuery = new CriteriaQuery(criteria);
-        searchQuery.setPageable(org.springframework.data.domain.PageRequest.of(
-                request.getRequest().getSearch().getPage().getFrom(),
-                request.getRequest().getSearch().getPage().getSize()));
+        // Create native search query
+        Query searchQuery = new NativeQueryBuilder()
+                .withQuery(boolQuery)
+                .withPageable(org.springframework.data.domain.PageRequest.of(
+                        request.getRequest().getSearch().getPage().getFrom(),
+                        request.getRequest().getSearch().getPage().getSize()))
+                .build();
 
-        return elasticsearchTemplate.search(searchQuery, SearchDocument.class);
+        logger.debug("Generated query: {}", boolQuery.toString());
+        return elasticsearchTemplate.search(searchQuery, SearchDocument.class, IndexCoordinates.of("retail"));
     }
 
     private co.elastic.clients.elasticsearch._types.query_dsl.Query createTextQuery(String text) {
         return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                 .multiMatch(new MultiMatchQuery.Builder()
                         .query(text)
-                        .fields("name", "description")
+                        .fields(fulltextSearchColumns)
                         .type(TextQueryType.BestFields)
                         .build())
                 .build();
@@ -89,38 +99,50 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private co.elastic.clients.elasticsearch._types.query_dsl.Query createFilterQuery(List<SearchRequest.Filter> filters) {
-        List<co.elastic.clients.elasticsearch._types.query_dsl.Query> filterQueries = new ArrayList<>();
-        
-        for (SearchRequest.Filter filter : filters) {
-            if ("or".equals(filter.getType())) {
-                List<co.elastic.clients.elasticsearch._types.query_dsl.Query> orQueries = new ArrayList<>();
-                for (SearchRequest.Field field : filter.getFields()) {
-                    orQueries.add(createFieldQuery(field));
+        if (filters.size() == 1) {
+            SearchRequest.Filter filter = filters.get(0);
+            List<co.elastic.clients.elasticsearch._types.query_dsl.Query> fieldQueries = new ArrayList<>();
+            
+            for (SearchRequest.Field field : filter.getFields()) {
+                if (field.getType() != null && ("or".equals(field.getType()) || "and".equals(field.getType()))) {
+                    // Handle nested filter conditions
+                    fieldQueries.add(createFilterQuery(List.of(new SearchRequest.Filter() {{
+                        setType(field.getType());
+                        setFields(field.getFields());
+                    }})));
+                } else {
+                    // Handle simple field conditions
+                    fieldQueries.add(createFieldQuery(field));
                 }
-                filterQueries.add(new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+            }
+            
+            if ("or".equals(filter.getType())) {
+                return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                         .bool(new BoolQuery.Builder()
-                                .should(orQueries)
+                                .should(fieldQueries)
                                 .minimumShouldMatch("1")
                                 .build())
-                        .build());
-            } else if ("and".equals(filter.getType())) {
-                List<co.elastic.clients.elasticsearch._types.query_dsl.Query> andQueries = new ArrayList<>();
-                for (SearchRequest.Field field : filter.getFields()) {
-                    andQueries.add(createFieldQuery(field));
-                }
-                filterQueries.add(new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                        .build();
+            } else {
+                // For "and" type or no type specified
+                return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                         .bool(new BoolQuery.Builder()
-                                .must(andQueries)
+                                .must(fieldQueries)
                                 .build())
-                        .build());
+                        .build();
             }
+        } else {
+            // Handle multiple filters
+            List<co.elastic.clients.elasticsearch._types.query_dsl.Query> filterQueries = new ArrayList<>();
+            for (SearchRequest.Filter filter : filters) {
+                filterQueries.add(createFilterQuery(List.of(filter)));
+            }
+            return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                    .bool(new BoolQuery.Builder()
+                            .must(filterQueries)
+                            .build())
+                    .build();
         }
-        
-        return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
-                .bool(new BoolQuery.Builder()
-                        .must(filterQueries)
-                        .build())
-                .build();
     }
 
     private co.elastic.clients.elasticsearch._types.query_dsl.Query createFieldQuery(SearchRequest.Field field) {
@@ -147,14 +169,24 @@ public class SearchServiceImpl implements SearchService {
                 List<FieldValue> values = ((List<?>) value).stream()
                         .map(v -> FieldValue.of(v.toString()))
                         .collect(Collectors.toList());
-                return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
-                        .terms(new TermsQuery.Builder()
-                                .field(name)
-                                .terms(new TermsQueryField.Builder()
-                                        .value(values)
-                                        .build())
-                                .build())
-                        .build();
+                if (name.equals("coffeeTypes") || name.equals("tags")) {
+                    // For array fields, use match query to check if array contains the value
+                    return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                            .match(new MatchQuery.Builder()
+                                    .field(name)
+                                    .query(values.get(0).stringValue())
+                                    .build())
+                            .build();
+                } else {
+                    return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                            .terms(new TermsQuery.Builder()
+                                    .field(name)
+                                    .terms(new TermsQueryField.Builder()
+                                            .value(values)
+                                            .build())
+                                    .build())
+                            .build();
+                }
             case "lt":
                 return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                         .range(new RangeQuery.Builder()

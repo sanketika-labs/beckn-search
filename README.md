@@ -77,26 +77,59 @@ The application exposes the following endpoints:
 Example request:
 ```json
 {
-  "request": {
-    "search": {
-      "text": "restaurant",
-      "geoSpatial": {
-        "radius": 5000,
-        "location": {
-          "lat": 12.9716,
-          "lng": 77.5946
-        }
+   "id": "api.catalog.search",
+   "ver": "v1",
+   "ts": "2024-04-10T16:10:50+05:30",
+   "params": {
+      "msgid": "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+   },
+   "request": {
+      "context": {
+         "domain": "retail"
       },
-      "filters": {
-        "cuisine": ["indian", "chinese"],
-        "price_range": "medium"
-      },
-      "page": {
-        "from": 0,
-        "size": 10
+      "search": {
+         "text": "coffee",
+         "geo_spatial": {
+            "distance": "1km",
+            "unit": "km",
+            "location": {
+               "lat": 40.758896,
+               "lon": -73.985130
+            }
+         },
+         "filters": [
+            {
+               "type": "and",
+               "fields": [
+                  {
+                     "type": "or",
+                     "fields": [
+                        { "name": "field1", "op": "eq", "value": "domain1" },
+                        {
+                           "type": "and",
+                           "fields": [
+                              { "name": "item.descriptor.name", "op": "eq", "value": "item1" },
+                              { "name": "tags", "op": "in", "value": ["tag1", "tag2"] }
+                           ]
+                        }
+                     ]
+                  },
+                  {
+                     "type": "and",
+                     "fields": [
+                        { "name": "field2", "op": "eq", "value": "value2" },
+                        { "name": "field3", "op": "lt", "value": "value3" }
+                     ]
+                  }
+               ]
+            }
+         ],
+         "page": {
+            "from": 0,
+            "size": 10
+         }
       }
-    }
-  }
+   }
 }
 ```
 
