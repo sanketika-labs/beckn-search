@@ -11,6 +11,7 @@ import org.beckn.model.SearchRequest;
 import org.beckn.service.SearchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -31,6 +32,9 @@ public class SearchServiceImpl implements SearchService {
 
     private final ElasticsearchTemplate elasticsearchTemplate;
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
+
+    @Value("${beck.fulltext.search.columns}")
+    private List<String> fulltextSearchColumns;
 
     @Override
     public SearchHits<SearchDocument> search(SearchRequest request) {
@@ -73,8 +77,7 @@ public class SearchServiceImpl implements SearchService {
         return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                 .multiMatch(new MultiMatchQuery.Builder()
                         .query(text)
-                        // .fields(List.of("name^3", "description^2", "coffeeTypes"))
-                        .fields(List.of("name", "description", "coffeeTypes"))
+                        .fields(fulltextSearchColumns)
                         .type(TextQueryType.BestFields)
                         .build())
                 .build();

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -23,7 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest(properties = {
-    "elasticsearch.index.name=retail"
+    "elasticsearch.index.name=retail",
+    "beck.fulltext.search.columns=name,description,coffeeTypes"
 })
 @Testcontainers
 class SearchServiceTest {
@@ -128,9 +130,9 @@ class SearchServiceTest {
         var result = searchService.search(request);
         
         assertNotNull(result);
-        System.out.println("Test result...");
-        System.out.println(result.getSearchHits().get(0));
+        SearchDocument resultDoc = result.getSearchHits().get(0).getContent();
         assertEquals(1, result.getTotalHits());
+        assertEquals("Third Wave Coffee", resultDoc.getName());
     }
 
     @Test

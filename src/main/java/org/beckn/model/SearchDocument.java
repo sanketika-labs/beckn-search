@@ -22,10 +22,10 @@ public class SearchDocument {
     @Field(type = FieldType.Text)
     private String description;
 
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Keyword)
     private String city;
 
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Keyword)
     private String state;
 
     @Field(type = FieldType.Text)
