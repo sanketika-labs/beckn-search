@@ -5,8 +5,8 @@ import co.elastic.clients.elasticsearch._types.GeoLocation;
 import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.json.JsonData;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.beckn.model.SearchDocument;
 import org.beckn.model.SearchRequest;
 import org.beckn.service.SearchService;
 import org.slf4j.Logger;
@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.SearchHitsImpl;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -24,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,13 +31,14 @@ import java.util.stream.Collectors;
 public class SearchServiceImpl implements SearchService {
 
     private final ElasticsearchTemplate elasticsearchTemplate;
+    private final ObjectMapper objectMapper;
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
 
     @Value("${beck.fulltext.search.columns}")
     private List<String> fulltextSearchColumns;
 
     @Override
-    public List<SearchDocument> search(SearchRequest request) {
+    public List<Map<String, Object>> search(SearchRequest request) {
         List<co.elastic.clients.elasticsearch._types.query_dsl.Query> queries = new ArrayList<>();
         
         // Text search
@@ -70,9 +71,14 @@ public class SearchServiceImpl implements SearchService {
                 .build();
 
         logger.debug("Generated query: {}", boolQuery.toString());
-        SearchHits<SearchDocument> searchHits = elasticsearchTemplate.search(searchQuery, SearchDocument.class, IndexCoordinates.of("retail"));
+        
+        // Get index name from context
+        String indexName = request.getRequest().getContext().getDomain();
+        SearchHits<Object> searchHits = elasticsearchTemplate.search(searchQuery, Object.class, IndexCoordinates.of(indexName));
+        
         return searchHits.getSearchHits().stream()
                 .map(SearchHit::getContent)
+                .map(content -> (Map<String, Object>) content)
                 .collect(Collectors.toList());
     }
 
