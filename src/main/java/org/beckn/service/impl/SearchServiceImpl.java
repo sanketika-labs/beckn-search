@@ -1,85 +1,136 @@
 package org.beckn.service.impl;
 
-import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.GeoLocation;
 import co.elastic.clients.elasticsearch._types.query_dsl.*;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.json.JsonData;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.beckn.model.SearchRequest;
+import org.beckn.model.SearchResponse;
 import org.beckn.service.SearchService;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.Query;
+import org.springframework.data.elasticsearch.core.geo.GeoPoint;
+import org.springframework.data.elasticsearch.core.query.StringQuery;
+import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
+import org.springframework.data.geo.Point;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.Metrics;
+import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
-import org.springframework.data.elasticsearch.core.query.Query;
-import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
-import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
+import java.util.Arrays;
+
+import co.elastic.clients.json.JsonData;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 
 @Service
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private final ElasticsearchTemplate elasticsearchTemplate;
-    private final ObjectMapper objectMapper;
+
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
+    private final ElasticsearchOperations elasticsearchTemplate;
 
     @Value("${beck.fulltext.search.columns}")
     private List<String> fulltextSearchColumns;
 
     @Override
-    public List<Map<String, Object>> search(SearchRequest request) {
-        List<co.elastic.clients.elasticsearch._types.query_dsl.Query> queries = new ArrayList<>();
-        
-        // Text search
-        if (request.getRequest().getSearch().getText() != null) {
-            queries.add(createTextQuery(request.getRequest().getSearch().getText()));
-        }
-        
-        // Geo spatial search
-        if (request.getRequest().getSearch().getGeoSpatial() != null) {
-            queries.add(createGeoQuery(request.getRequest().getSearch().getGeoSpatial()));
-        }
-        
-        // Filters
-        if (request.getRequest().getSearch().getFilters() != null) {
-            queries.add(createFilterQuery(request.getRequest().getSearch().getFilters()));
-        }
-        
-        co.elastic.clients.elasticsearch._types.query_dsl.Query boolQuery = new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
-                .bool(new BoolQuery.Builder()
-                        .must(queries)
-                        .build())
-                .build();
+    public SearchResponse search(SearchRequest request) {
+        try {
+            List<co.elastic.clients.elasticsearch._types.query_dsl.Query> queries = new ArrayList<>();
 
-        // Create native search query
-        Query searchQuery = new NativeQueryBuilder()
-                .withQuery(boolQuery)
-                .withPageable(org.springframework.data.domain.PageRequest.of(
-                        request.getRequest().getSearch().getPage().getFrom(),
-                        request.getRequest().getSearch().getPage().getSize()))
-                .build();
+            // Text search
+            if (request.getRequest().getSearch().getText() != null && !request.getRequest().getSearch().getText().isEmpty()) {
+                queries.add(createTextQuery(request.getRequest().getSearch().getText()));
+            }
 
-        logger.debug("Generated query: {}", boolQuery.toString());
-        
-        // Get index name from context
-        String indexName = request.getRequest().getContext().getDomain();
-        SearchHits<Object> searchHits = elasticsearchTemplate.search(searchQuery, Object.class, IndexCoordinates.of(indexName));
-        
-        return searchHits.getSearchHits().stream()
-                .map(SearchHit::getContent)
-                .map(content -> (Map<String, Object>) content)
-                .collect(Collectors.toList());
+            // Geo spatial search
+            if (request.getRequest().getSearch().getGeoSpatial() != null) {
+                queries.add(createGeoQuery(request.getRequest().getSearch().getGeoSpatial()));
+            }
+
+            // Filters
+            if (request.getRequest().getSearch().getFilters() != null) {
+                co.elastic.clients.elasticsearch._types.query_dsl.Query filterQuery = createFilterQuery(request.getRequest().getSearch().getFilters());
+                if (filterQuery != null) {
+                    queries.add(filterQuery);
+                }
+            }
+
+            co.elastic.clients.elasticsearch._types.query_dsl.Query finalQuery;
+            if (queries.isEmpty()) {
+                finalQuery = new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                        .matchAll(new MatchAllQuery.Builder().build())
+                        .build();
+            } else {
+                finalQuery = new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                        .bool(new BoolQuery.Builder()
+                                .must(queries)
+                                .build())
+                        .build();
+            }
+
+            // Create native search query
+            Query searchQuery = new NativeQueryBuilder()
+                    .withQuery(finalQuery)
+                    .withPageable(org.springframework.data.domain.PageRequest.of(
+                            request.getRequest().getSearch().getPage().getFrom(),
+                            request.getRequest().getSearch().getPage().getSize()))
+                    .build();
+
+            logger.debug("Generated query: {}", finalQuery.toString());
+
+            SearchHits<?> hits = elasticsearchTemplate.search(searchQuery, Map.class,
+                    org.springframework.data.elasticsearch.core.mapping.IndexCoordinates.of(
+                            request.getRequest().getContext().getDomain()
+                    )
+            );
+
+            List<Map<String, Object>> results = hits.getSearchHits().stream()
+                    .map(hit -> (Map<String, Object>) hit.getContent())
+                    .collect(Collectors.toList());
+
+            return SearchResponse.builder()
+                    .id(request.getId())
+                    .ver(request.getVer())
+                    .ts(OffsetDateTime.now())
+                    .params(SearchResponse.Params.builder()
+                            .status("SUCCESS")
+                            .msgid(request.getParams().getMsgid().toString())
+                            .build())
+                    .responseCode("OK")
+                    .result(results)
+                    .build();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return SearchResponse.builder()
+                    .id(request.getId())
+                    .ver(request.getVer())
+                    .ts(OffsetDateTime.now())
+                    .params(SearchResponse.Params.builder()
+                            .status("ERROR")
+                            .msgid(request.getParams().getMsgid().toString())
+                            .build())
+                    .responseCode("INTERNAL_SERVER_ERROR")
+                    .result(List.of())
+                    .error(SearchResponse.Error.builder()
+                            .code("SEARCH_ERROR")
+                            .message(e.getMessage())
+                            .build())
+                    .build();
+        }
     }
 
     private co.elastic.clients.elasticsearch._types.query_dsl.Query createTextQuery(String text) {
@@ -111,7 +162,7 @@ public class SearchServiceImpl implements SearchService {
         if (filters.size() == 1) {
             SearchRequest.Filter filter = filters.get(0);
             List<co.elastic.clients.elasticsearch._types.query_dsl.Query> fieldQueries = new ArrayList<>();
-            
+
             for (SearchRequest.Field field : filter.getFields()) {
                 if (field.getType() != null && ("or".equals(field.getType()) || "and".equals(field.getType()))) {
                     // Handle nested filter conditions
@@ -124,7 +175,7 @@ public class SearchServiceImpl implements SearchService {
                     fieldQueries.add(createFieldQuery(field));
                 }
             }
-            
+
             if ("or".equals(filter.getType())) {
                 return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                         .bool(new BoolQuery.Builder()
@@ -168,25 +219,34 @@ public class SearchServiceImpl implements SearchService {
 
         switch (op) {
             case "eq":
+                /*
                 return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                         .term(new TermQuery.Builder()
                                 .field(name)
                                 .value(FieldValue.of(value.toString()))
                                 .build())
                         .build();
+                 */
+                return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                        .match(new MatchQuery.Builder()
+                                .field(name)
+                                .query(FieldValue.of(value.toString()))
+                                .build())
+                        .build();
             case "in":
                 List<FieldValue> values = ((List<?>) value).stream()
-                        .map(v -> FieldValue.of(v.toString()))
-                        .collect(Collectors.toList());
-                if (name.equals("coffeeTypes") || name.equals("tags")) {
-                    // For array fields, use match query to check if array contains the value
-                    return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
-                            .match(new MatchQuery.Builder()
-                                    .field(name)
-                                    .query(values.get(0).stringValue())
-                                    .build())
-                            .build();
-                } else {
+                        .map(v -> FieldValue.of(v.toString())).toList();
+                // if (name.equals("coffeeTypes") || name.equals("tags")) {
+                // For array fields, use match query to check if array contains the value
+                return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
+                        .match(new MatchQuery.Builder()
+                                .field(name)
+                                .query(values.get(0).stringValue())
+                                .build())
+                        .build();
+            // }
+                /*
+                else {
                     return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                             .terms(new TermsQuery.Builder()
                                     .field(name)
@@ -196,6 +256,7 @@ public class SearchServiceImpl implements SearchService {
                                     .build())
                             .build();
                 }
+                */
             case "lt":
                 return new co.elastic.clients.elasticsearch._types.query_dsl.Query.Builder()
                         .range(new RangeQuery.Builder()

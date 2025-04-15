@@ -1,6 +1,8 @@
 package org.beckn.model;
 
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -10,7 +12,9 @@ import org.springframework.data.elasticsearch.core.geo.GeoPoint;
 
 import java.util.List;
 
-@Data
+// @Data
+@Getter
+@Setter
 @Document(indexName = "retail")
 public class SearchDocument {
     @Id
@@ -22,10 +26,10 @@ public class SearchDocument {
     @Field(type = FieldType.Text)
     private String description;
 
-    @Field(type = FieldType.Keyword)
+    @Field(type = FieldType.Text)
     private String city;
 
-    @Field(type = FieldType.Keyword)
+    @Field(type = FieldType.Text)
     private String state;
 
     @Field(type = FieldType.Text)
@@ -101,4 +105,5 @@ public class SearchDocument {
     public void setLocation(GeoPoint location) {
         this.location = location;
     }
-} 
+
+}
