@@ -107,9 +107,9 @@ class SearchServiceTest {
     void testTextSearch() throws Exception {
         var request = createSearchRequest();
         request.getRequest().getSearch().setText("Third Wave");
-        
+
+        System.out.println("Request: " + objectMapper.writeValueAsString(request));
         var response = searchService.search(request);
-        
         System.out.println("Response: " + objectMapper.writeValueAsString(response));
         
         assertNotNull(response);
@@ -136,11 +136,10 @@ class SearchServiceTest {
         geoSpatial.setDistance("1");
         geoSpatial.setUnit("km");
         request.getRequest().getSearch().setGeoSpatial(geoSpatial);
-        
+
+        System.out.println("Request: " + objectMapper.writeValueAsString(request));
         var response = searchService.search(request);
-        
         System.out.println("Response: " + objectMapper.writeValueAsString(response));
-        System.out.println("Result size: " + response.getResult().size());
         
         assertNotNull(response);
         assertEquals(request.getId(), response.getId());
@@ -182,9 +181,9 @@ class SearchServiceTest {
         
         filter.setFields(List.of(field1, field2));
         request.getRequest().getSearch().setFilters(List.of(filter));
-        
+
+        System.out.println("Request: " + objectMapper.writeValueAsString(request));
         var response = searchService.search(request);
-        
         System.out.println("Response: " + objectMapper.writeValueAsString(response));
         
         assertNotNull(response);
@@ -234,8 +233,8 @@ class SearchServiceTest {
         filter.setFields(List.of(field1, field2));
         request.getRequest().getSearch().setFilters(List.of(filter));
 
+        System.out.println("Request: " + objectMapper.writeValueAsString(request));
         var response = searchService.search(request);
-
         System.out.println("Response: " + objectMapper.writeValueAsString(response));
         
         assertNotNull(response);
@@ -278,8 +277,8 @@ class SearchServiceTest {
         filter.setFields(List.of(field1, field2));
         request.getRequest().getSearch().setFilters(List.of(filter));
 
+        System.out.println("Request: " + objectMapper.writeValueAsString(request));
         var response = searchService.search(request);
-
         System.out.println("Response: " + objectMapper.writeValueAsString(response));
 
         assertNotNull(response);
@@ -322,8 +321,8 @@ class SearchServiceTest {
         filter.setFields(List.of(field1));
         request.getRequest().getSearch().setFilters(List.of(filter));
 
+        System.out.println("Request: " + objectMapper.writeValueAsString(request));
         var response = searchService.search(request);
-
         System.out.println("Response: " + objectMapper.writeValueAsString(response));
 
         assertNotNull(response);
@@ -341,6 +340,38 @@ class SearchServiceTest {
         List<String> coffeeTypes = (List<String>) resultDoc1.get("coffeeTypes");
         assertNotNull(coffeeTypes);
         assertTrue(coffeeTypes.contains("Cappuccino"));
+    }
+
+    @Test
+    void testIndexNotFoundSearch() throws Exception {
+        var request = createSearchRequest();
+        request.getRequest().getContext().setDomain("index_not_found");
+        request.getRequest().getSearch().setText("Coffee Day");
+
+        var filter = new SearchRequest.Filter();
+        filter.setType("and");
+
+        var field1 = new SearchRequest.Field();
+        field1.setName("city");
+        field1.setOp("eq");
+        field1.setValue("chennai");
+
+        filter.setFields(List.of(field1));
+        request.getRequest().getSearch().setFilters(List.of(filter));
+
+        System.out.println("Request: " + objectMapper.writeValueAsString(request));
+        var response = searchService.search(request);
+        System.out.println("Response: " + objectMapper.writeValueAsString(response));
+
+        assertNotNull(response);
+        assertEquals(request.getId(), response.getId());
+        assertEquals(request.getVer(), response.getVer());
+        assertEquals(request.getParams().getMsgid().toString(), response.getParams().getMsgid());
+        assertEquals("ERROR", response.getParams().getStatus());
+        assertEquals("INTERNAL_SERVER_ERROR", response.getResponseCode());
+        assertEquals(0, response.getResult().size());
+        assertEquals("SEARCH_ERROR", response.getError().getCode());
+        assertEquals("Index index_not_found not found.", response.getError().getMessage());
     }
 
     private SearchRequest createSearchRequest() {
