@@ -306,6 +306,43 @@ class SearchServiceTest {
         assertTrue(tags.contains("coffee"));
     }
 
+    @Test
+    void testMultipleTypeSearch() throws Exception {
+        var request = createSearchRequest();
+        request.getRequest().getSearch().setText("Coffee Day");
+
+        var filter = new SearchRequest.Filter();
+        filter.setType("and");
+
+        var field1 = new SearchRequest.Field();
+        field1.setName("city");
+        field1.setOp("eq");
+        field1.setValue("chennai");
+
+        filter.setFields(List.of(field1));
+        request.getRequest().getSearch().setFilters(List.of(filter));
+
+        var response = searchService.search(request);
+
+        System.out.println("Response: " + objectMapper.writeValueAsString(response));
+
+        assertNotNull(response);
+        assertEquals(request.getId(), response.getId());
+        assertEquals(request.getVer(), response.getVer());
+        assertEquals(request.getParams().getMsgid().toString(), response.getParams().getMsgid());
+        assertEquals("SUCCESS", response.getParams().getStatus());
+        assertEquals("OK", response.getResponseCode());
+        assertEquals(1, response.getResult().size());
+        assertNull(response.getError());
+
+        Map<String, Object> resultDoc1 = response.getResult().get(0);
+        assertEquals("Cafe Coffee Day", resultDoc1.get("name"));
+
+        List<String> coffeeTypes = (List<String>) resultDoc1.get("coffeeTypes");
+        assertNotNull(coffeeTypes);
+        assertTrue(coffeeTypes.contains("Cappuccino"));
+    }
+
     private SearchRequest createSearchRequest() {
         var request = new SearchRequest();
         request.setId("api.catalog.search");
