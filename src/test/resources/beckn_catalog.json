@@ -1,0 +1,31 @@
+{
+    "context": {
+        "domain": "retail",
+        "country": "IND",
+        "city": "std:080",
+        "action": "search",
+        "core_version": "1.0.0",
+        "bap_id": "buyer-app.beckn.org",
+        "bap_uri": "https://buyer-app.beckn.org",
+        "transaction_id": "12345",
+        "message_id": "12345",
+        "timestamp": "2025-04-15T10:30:00Z"
+    },
+    "message": {
+        "catalog": {
+            "descriptor": {
+                "name": "EcoCharge-Retail-Catalog",
+                "short_desc": "Eco-friendly retail products"
+            },
+            "providers": [
+                {
+                    "id": "provider1",
+                    "descriptor": {
+                        "name": "EcoCharge Retail Store",
+                        "short_desc": "Your one-stop shop for eco-friendly products"
+                    }
+                }
+            ]
+        }
+    }
+}

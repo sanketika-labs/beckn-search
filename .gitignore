@@ -106,3 +106,5 @@ node_modules/
 # Logs
 logs/
 
+
+.cursor

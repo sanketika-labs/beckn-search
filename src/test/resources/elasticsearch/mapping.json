@@ -1,0 +1,33 @@
+{
+  "mappings": {
+    "properties": {
+      "name": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "description": {
+        "type": "text"
+      },
+      "category": {
+        "type": "keyword"
+      },
+      "location": {
+        "type": "geo_point"
+      },
+      "price": {
+        "type": "double"
+      },
+      "rating": {
+        "type": "float"
+      },
+      "tags": {
+        "type": "keyword"
+      }
+    }
+  }
+} 

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Test Product 1",
+    "description": "This is a test product description",
+    "category": "test-category",
+    "location": {
+      "lat": 12.9716,
+      "lon": 77.5946
+    },
+    "price": 100.0,
+    "rating": 4.5,
+    "tags": ["test", "sample"]
+  },
+  {
+    "name": "Test Product 2",
+    "description": "Another test product description",
+    "category": "test-category-2",
+    "location": {
+      "lat": 13.0827,
+      "lon": 80.2707
+    },
+    "price": 200.0,
+    "rating": 4.0,
+    "tags": ["test", "example"]
+  }
+] 
