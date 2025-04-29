@@ -23,7 +23,7 @@ import java.io.IOException;
 
 @Slf4j
 @RestController
-@RequestMapping("/search")
+@RequestMapping("/api/v1")
 @Validated
 public class SearchController {
     private static final Logger logger = LoggerFactory.getLogger(SearchController.class);
@@ -40,7 +40,7 @@ public class SearchController {
         this.requestValidator = requestValidator;
     }
 
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> search(@Valid @RequestBody SearchRequestDto request) {
         try {
             // Validate the request

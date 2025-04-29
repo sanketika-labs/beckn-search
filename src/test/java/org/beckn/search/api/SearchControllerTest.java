@@ -178,7 +178,7 @@ class SearchControllerTest {
         when(searchService.searchAndGetRawCatalog(any(SearchRequestDto.class), eq(0), eq(10))).thenReturn(catalogJson);
         when(responseTransformer.transformToResponse(catalogJson)).thenReturn(mockResponse);
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andDo(print())
@@ -203,7 +203,7 @@ class SearchControllerTest {
             }
             """;
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(invalidJson))
             .andExpect(status().isBadRequest());
@@ -308,7 +308,7 @@ class SearchControllerTest {
         when(searchService.searchAndGetRawCatalog(any(SearchRequestDto.class), eq(0), eq(10))).thenReturn(catalogJson);
         when(responseTransformer.transformToResponse(catalogJson)).thenReturn(mockResponse);
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andDo(print())
@@ -329,7 +329,7 @@ class SearchControllerTest {
         when(searchService.searchAndGetRawCatalog(any(SearchRequestDto.class), any(Integer.class), any(Integer.class)))
             .thenThrow(new RuntimeException("Search failed"));
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andExpect(status().isInternalServerError())
@@ -354,7 +354,7 @@ class SearchControllerTest {
         when(responseTransformer.transformToResponse(catalogJson))
             .thenReturn(mockResponse);
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andExpect(status().isOk())
@@ -370,7 +370,7 @@ class SearchControllerTest {
         SearchRequestDto request = createRequestWithPagination(-1, 20);
         String requestJson = objectMapper.writeValueAsString(request);
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andExpect(status().isBadRequest());
@@ -379,7 +379,7 @@ class SearchControllerTest {
         request = createRequestWithPagination(0, -1);
         requestJson = objectMapper.writeValueAsString(request);
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andExpect(status().isBadRequest());
@@ -388,7 +388,7 @@ class SearchControllerTest {
         request = createRequestWithPagination(0, 0);
         requestJson = objectMapper.writeValueAsString(request);
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andExpect(status().isBadRequest());
@@ -426,7 +426,7 @@ class SearchControllerTest {
         when(responseTransformer.transformToResponse(emptyJson))
             .thenReturn(emptyResponse);
 
-        mockMvc.perform(post("/search")
+        mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
             .andExpect(status().isOk())

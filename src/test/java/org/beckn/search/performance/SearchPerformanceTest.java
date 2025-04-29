@@ -176,7 +176,7 @@ class SearchPerformanceTest {
     void testResponseTime() throws Exception {
         long startTime = System.currentTimeMillis();
         
-        MvcResult result = mockMvc.perform(post("/search")
+        MvcResult result = mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(sampleJson))
             .andExpect(status().isOk())
