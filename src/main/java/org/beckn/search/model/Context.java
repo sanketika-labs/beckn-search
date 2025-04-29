@@ -9,29 +9,20 @@ public class Context {
     @NotNull
     private String domain;
     
-    @NotNull
-    private String country;
+    private Location location;
     
-    @NotNull
-    private String city;
-    
-    @NotNull
     @JsonProperty("bap_id")
     private String bapId;
     
-    @NotNull
     @JsonProperty("bap_uri")
     private String bapUri;
     
-    @NotNull
     @JsonProperty("transaction_id")
     private String transactionId;
     
-    @NotNull
     @JsonProperty("message_id")
     private String messageId;
     
-    @NotNull
     private String timestamp;
 
     private String action;

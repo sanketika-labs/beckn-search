@@ -40,40 +40,80 @@ class SearchRequestDtoTest {
     }
 
     @Test
-    void testValidRequestDeserialization() throws Exception {
-        String json = """
+    void testValidRequestDeserialization() throws IOException {
+        String validJson = """
             {
                 "context": {
                     "domain": "retail",
-                    "country": "IND",
-                    "city": "std:080",
+                    "location": {
+                        "country": {
+                            "name": "India",
+                            "code": "IND"
+                        },
+                        "city": {
+                            "name": "Bangalore",
+                            "code": "std:080"
+                        }
+                    },
                     "bap_id": "buyer-app.beckn.org",
                     "bap_uri": "https://buyer-app.beckn.org",
-                    "transaction_id": "12345",
-                    "message_id": "12345",
+                    "transaction_id": "12345678-aaaa-bbbb-cccc-1234567890ab",
+                    "message_id": "abcdef12-3456-7890-abcd-ef1234567890",
                     "timestamp": "2025-04-15T10:30:00Z"
                 },
                 "message": {
                     "intent": {
                         "provider": {
+                            "id": "provider1.beckn.org",
                             "descriptor": {
-                                "name": "Test Provider"
+                                "name": "provider1"
+                            },
+                            "categories": [
+                                {
+                                    "id": "grocery"
+                                }
+                            ]
+                        },
+                        "items": [
+                            {
+                                "descriptor": {
+                                    "name": "milk",
+                                    "code": "milk",
+                                    "short_desc": "string",
+                                    "long_desc": "string"
+                                },
+                                "price": {
+                                    "currency": "INR",
+                                    "value": "65.87",
+                                    "estimated_value": "70.48",
+                                    "computed_value": "75.78",
+                                    "listed_value": "73.17",
+                                    "offered_value": "72.67",
+                                    "minimum_value": "71.40",
+                                    "maximum_value": "73.20"
+                                },
+                                "rating": "4.9"
                             }
-                        }
+                        ]
                     }
                 }
             }
             """;
 
-        SearchRequestDto request = objectMapper.readValue(json, SearchRequestDto.class);
+        SearchRequestDto request = objectMapper.readValue(validJson, SearchRequestDto.class);
         assertNotNull(request);
         assertNotNull(request.getContext());
         assertEquals("retail", request.getContext().getDomain());
-        assertNotNull(request.getMessage());
-        assertNotNull(request.getMessage().getIntent());
-        assertNotNull(request.getMessage().getIntent().getProvider());
-        assertNotNull(request.getMessage().getIntent().getProvider().getDescriptor());
-        assertEquals("Test Provider", request.getMessage().getIntent().getProvider().getDescriptor().getName());
+        assertNotNull(request.getContext().getLocation());
+        assertEquals("India", request.getContext().getLocation().getCountry().getName());
+        assertEquals("IND", request.getContext().getLocation().getCountry().getCode());
+        assertEquals("Bangalore", request.getContext().getLocation().getCity().getName());
+        assertEquals("std:080", request.getContext().getLocation().getCity().getCode());
+        assertEquals("buyer-app.beckn.org", request.getContext().getBapId());
+        assertEquals("https://buyer-app.beckn.org", request.getContext().getBapUri());
+        assertEquals("12345678-aaaa-bbbb-cccc-1234567890ab", request.getContext().getTransactionId());
+        assertEquals("abcdef12-3456-7890-abcd-ef1234567890", request.getContext().getMessageId());
+        assertEquals("2025-04-15T10:30:00Z", request.getContext().getTimestamp());
     }
 
     @Test
@@ -101,19 +141,28 @@ class SearchRequestDtoTest {
             {
                 "context": {
                     "domain": "retail",
-                    "country": "IND",
-                    "city": "std:080",
+                    "location": {
+                        "country": {
+                            "name": "India",
+                            "code": "IND"
+                        },
+                        "city": {
+                            "name": "Bangalore",
+                            "code": "std:080"
+                        }
+                    },
                     "bap_id": "buyer-app.beckn.org",
                     "bap_uri": "https://buyer-app.beckn.org",
-                    "transaction_id": "12345",
-                    "message_id": "12345",
+                    "transaction_id": "98765432-dddd-eeee-ffff-0987654321fe",
+                    "message_id": "fedcba98-7654-3210-fedc-ba9876543210",
                     "timestamp": "2025-04-15T10:30:00Z"
                 },
                 "message": {
                     "intent": {
                         "provider": {
                             "descriptor": {
-                                "invalid_field": "test"
+                                "invalid_field": "test",
+                                "another_invalid": "value"
                             }
                         }
                     }

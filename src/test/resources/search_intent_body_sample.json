@@ -1,0 +1,56 @@
+{
+    "context": {
+        "domain": "retail",
+        "location": {
+            "country": {
+                "name": "India",
+                "code": "IND"
+            },
+            "city": {
+                "name": "Bangalore",
+                "code": "std:080"
+            }
+        },
+        "bap_id": "buyer-app.beckn.org",
+        "bap_uri": "https://buyer-app.beckn.org",
+        "transaction_id": "12345678-aaaa-bbbb-cccc-1234567890ab",
+        "message_id": "abcdef12-3456-7890-abcd-ef1234567890",
+        "timestamp": "2025-04-15T10:30:00Z"
+    },
+    "message": {
+        "intent": {
+            "provider": {
+                "id": "provider1.beckn.org",
+                "descriptor": {
+                    "name": "provider1"
+                },
+                "categories": [
+                    {
+                        "id": "grocery"
+                    }
+                ]
+            },
+            "items": [
+                {
+                    "descriptor": {
+                        "name": "milk",
+                        "code": "milk",
+                        "short_desc": "string",
+                        "long_desc": "string"
+                    },
+                    "price": {
+                        "currency": "INR",
+                        "value": "65.87",
+                        "estimated_value": "70.48",
+                        "computed_value": "75.78",
+                        "listed_value": "73.17",
+                        "offered_value": "72.67",
+                        "minimum_value": "71.40",
+                        "maximum_value": "73.20"
+                    },
+                    "rating": "4.9"
+                }
+            ]
+        }
+    }
+} 

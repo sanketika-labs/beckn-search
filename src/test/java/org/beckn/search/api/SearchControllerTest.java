@@ -65,8 +65,19 @@ class SearchControllerTest {
         // Set context
         Context context = new Context();
         context.setDomain("retail");
-        context.setCountry("IND");
-        context.setCity("std:080");
+        
+        Location location = new Location();
+        Location.Country country = new Location.Country();
+        country.setName("India");
+        country.setCode("IND");
+        location.setCountry(country);
+        
+        Location.City city = new Location.City();
+        city.setName("Bangalore");
+        city.setCode("std:080");
+        location.setCity(city);
+        
+        context.setLocation(location);
         context.setBapId("beckn-search");
         context.setBapUri("https://search.becknprotocol.io");
         context.setTransactionId("txn-123");
@@ -185,8 +196,8 @@ class SearchControllerTest {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.context.domain").value("retail"))
-            .andExpect(jsonPath("$.context.country").value("IND"))
-            .andExpect(jsonPath("$.context.city").value("std:080"))
+            .andExpect(jsonPath("$.context.location.country.code").value("IND"))
+            .andExpect(jsonPath("$.context.location.city.code").value("std:080"))
             .andExpect(jsonPath("$.message.catalog.descriptor.name").value("EcoCharge-Retail-Catalog"))
             .andExpect(jsonPath("$.message.catalog.descriptor.code").value("CATALOG-001"))
             .andExpect(jsonPath("$.message.catalog.providers[0].id").value("provider-1"))
@@ -315,7 +326,10 @@ class SearchControllerTest {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.context.domain").value("retail"))
+            .andExpect(jsonPath("$.context.location.country.code").value("IND"))
+            .andExpect(jsonPath("$.context.location.city.code").value("std:080"))
             .andExpect(jsonPath("$.message.catalog.descriptor.name").value("EcoCharge-Retail-Catalog"))
+            .andExpect(jsonPath("$.message.catalog.descriptor.code").value("CATALOG-001"))
             .andExpect(jsonPath("$.message.catalog.providers[0].descriptor.name").value("Grocery Store"))
             .andExpect(jsonPath("$.message.catalog.providers[0].categories[0].id").value("grocery"))
             .andExpect(jsonPath("$.message.catalog.providers[0].items[0].descriptor.name").value("Milk"))
@@ -360,7 +374,10 @@ class SearchControllerTest {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.context.domain").value("retail"))
+            .andExpect(jsonPath("$.context.location.country.code").value("IND"))
+            .andExpect(jsonPath("$.context.location.city.code").value("std:080"))
             .andExpect(jsonPath("$.message.catalog.descriptor.name").value("EcoCharge-Retail-Catalog"))
+            .andExpect(jsonPath("$.message.catalog.descriptor.code").value("CATALOG-001"))
             .andExpect(jsonPath("$.message.catalog.providers[0].descriptor.name").value("Paginated Store"));
     }
 
@@ -432,6 +449,8 @@ class SearchControllerTest {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(jsonPath("$.context.domain").value("retail"))
+            .andExpect(jsonPath("$.context.location.country.code").value("IND"))
+            .andExpect(jsonPath("$.context.location.city.code").value("std:080"))
             .andExpect(jsonPath("$.message.catalog.descriptor.name").value("EcoCharge-Retail-Catalog"))
             .andExpect(jsonPath("$.message.catalog.providers").isEmpty());
     }

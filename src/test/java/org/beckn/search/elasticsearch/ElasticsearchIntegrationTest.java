@@ -10,6 +10,7 @@ import org.beckn.search.model.SearchRequestDto;
 import org.beckn.search.model.Context;
 import org.beckn.search.model.Message;
 import org.beckn.search.model.Intent;
+import org.beckn.search.model.Location;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,7 +75,7 @@ class ElasticsearchIntegrationTest {
 
     private static final int MAX_RETRIES = 3;
     private static final long RETRY_DELAY_MS = 1000;
-    private static final String INDEX_NAME = "test_catalog";
+    private static final String INDEX_NAME = "test-domain";
     private static boolean dataLoaded = false;
     private static SearchRequestDto searchRequest;
 
@@ -85,9 +86,20 @@ class ElasticsearchIntegrationTest {
         // Initialize search request
         searchRequest = new SearchRequestDto();
         Context context = new Context();
-        context.setDomain(INDEX_NAME);
-        context.setCountry("test-country");
-        context.setCity("test-city");
+        context.setDomain("test-domain");
+        
+        Location location = new Location();
+        Location.Country country = new Location.Country();
+        country.setName("Test Country");
+        country.setCode("test-country");
+        location.setCountry(country);
+        
+        Location.City city = new Location.City();
+        city.setName("Test City");
+        city.setCode("test-city");
+        location.setCity(city);
+        
+        context.setLocation(location);
         context.setBapId("test-bap");
         context.setBapUri("test-uri");
         context.setTransactionId("test-txn");

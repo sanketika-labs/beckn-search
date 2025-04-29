@@ -137,14 +137,20 @@ class SearchQueryBuilderTest {
     private SearchRequestDto createSampleRequest() {
         SearchRequestDto request = new SearchRequestDto();
         Context context = new Context();
-        context.setDomain("retail");
-        context.setCountry("test-country");
-        context.setCity("test-city");
-        context.setBapId("test-bap");
-        context.setBapUri("test-uri");
-        context.setTransactionId("test-txn");
-        context.setMessageId("test-msg");
-        context.setTimestamp("2024-03-15T10:00:00Z");
+        context.setDomain("test-domain");
+        
+        Location location = new Location();
+        Location.Country country = new Location.Country();
+        country.setName("Test Country");
+        country.setCode("test-country");
+        location.setCountry(country);
+        
+        Location.City city = new Location.City();
+        city.setName("Test City");
+        city.setCode("test-city");
+        location.setCity(city);
+        
+        context.setLocation(location);
         
         Message message = new Message();
         Intent intent = new Intent();
