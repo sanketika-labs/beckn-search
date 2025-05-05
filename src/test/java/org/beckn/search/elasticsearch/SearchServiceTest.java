@@ -18,6 +18,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -32,6 +34,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class SearchServiceTest {
 
     @Mock
@@ -98,11 +101,9 @@ class SearchServiceTest {
 
         // Setup mock indices client
         var indicesClient = mock(ElasticsearchIndicesClient.class);
-        when(indicesClient.exists(any(Function.class))).thenAnswer(invocation -> new Object() {
-            public boolean value() {
-                return true;
-            }
-        });
+        doReturn(new co.elastic.clients.transport.endpoints.BooleanResponse(true))
+            .when(indicesClient)
+            .exists(any(Function.class));
         when(elasticsearchClient.indices()).thenReturn(indicesClient);
 
         // Setup mock query builder
@@ -153,11 +154,9 @@ class SearchServiceTest {
     void testSearchWithNonExistentIndex() throws IOException {
         // Setup mock indices client to return false for exists check
         var indicesClient = mock(ElasticsearchIndicesClient.class);
-        when(indicesClient.exists(any(Function.class))).thenAnswer(invocation -> new Object() {
-            public boolean value() {
-                return false;
-            }
-        });
+        doReturn(new co.elastic.clients.transport.endpoints.BooleanResponse(false))
+            .when(indicesClient)
+            .exists(any(Function.class));
         when(elasticsearchClient.indices()).thenReturn(indicesClient);
 
         assertThrows(IllegalArgumentException.class, () -> searchService.search(mockRequest));

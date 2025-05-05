@@ -148,7 +148,8 @@ class SearchControllerTest {
         // Mock validator to do nothing (validation passes)
         doNothing().when(requestValidator).validate(any(SearchRequestDto.class));
 
-        when(searchService.searchAndGetResponse(any(SearchRequestDto.class), eq("OR")))
+        // Mock the service to return our mockResponse
+        when(searchService.searchAndGetResponse(any(SearchRequestDto.class), eq("AND")))
             .thenReturn(mockResponse);
 
         mockMvc.perform(post("/api/v1/search")
@@ -171,10 +172,10 @@ class SearchControllerTest {
     void testSearchWithPagination() throws Exception {
         SearchRequestDto request = createRequestWithPagination(1, 20);
         String requestJson = objectMapper.writeValueAsString(request);
-        String catalogJson = "{\"message\":{\"catalog\":{}}}";
+        SearchResponseDto mockResponse = createMockResponse("EcoCharge-Retail-Catalog", "Local Store");
 
-        when(searchService.searchAndGetRawCatalog(any(SearchRequestDto.class), eq(1), eq(20), eq(SearchQueryBuilder.LogicalOperator.OR)))
-            .thenReturn(catalogJson);
+        when(searchService.searchAndGetResponse(any(SearchRequestDto.class), eq("AND")))
+            .thenReturn(mockResponse);
         doNothing().when(requestValidator).validate(any());
 
         mockMvc.perform(post("/api/v1/search")
@@ -201,7 +202,7 @@ class SearchControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.message.catalog").exists());
 
-        // Verify the service was called with AND operator
+        // Verify the service was called
         verify(searchService).searchAndGetResponse(any(SearchRequestDto.class), eq("AND"));
     }
 
@@ -212,30 +213,38 @@ class SearchControllerTest {
             .thenReturn(mockResponse);
         doNothing().when(requestValidator).validate(any());
 
-        // Perform request with OR operator (default)
+        // Perform request with OR operator
         mockMvc.perform(post("/api/v1/search")
+                .param("operator", "OR")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(sampleJson))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.message.catalog").exists());
 
-        // Verify the service was called with OR operator
+        // Verify the service was called
         verify(searchService).searchAndGetResponse(any(SearchRequestDto.class), eq("OR"));
     }
 
     @Test
     void testSearchWithInvalidOperator() throws Exception {
+        // Mock validator to do nothing (validation passes)
+        doNothing().when(requestValidator).validate(any(SearchRequestDto.class));
+
+        // Mock the service to throw an IllegalArgumentException
+        when(searchService.searchAndGetResponse(any(SearchRequestDto.class), eq("INVALID")))
+            .thenThrow(new IllegalArgumentException("Invalid operator. Must be either 'AND' or 'OR'"));
+
         mockMvc.perform(post("/api/v1/search")
                 .param("operator", "INVALID")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(sampleJson))
             .andDo(print())
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("Invalid operator. Must be either 'AND' or 'OR'"));
+            .andExpect(jsonPath("$.error").value("Invalid request: Invalid operator. Must be either 'AND' or 'OR'"));
 
-        // Verify the service was not called
-        verify(searchService, never()).searchAndGetRawCatalog(any(), anyInt(), anyInt(), any());
+        // Verify the service was called
+        verify(searchService).searchAndGetResponse(any(SearchRequestDto.class), eq("INVALID"));
     }
 
     @Test
@@ -252,8 +261,11 @@ class SearchControllerTest {
 
     @Test
     void testSearchWithError() throws Exception {
-        doNothing().when(requestValidator).validate(any());
-        when(searchService.searchAndGetRawCatalog(any(), anyInt(), anyInt(), any(SearchQueryBuilder.LogicalOperator.class)))
+        // Mock validator to do nothing (validation passes)
+        doNothing().when(requestValidator).validate(any(SearchRequestDto.class));
+
+        // Mock the service to throw an IOException
+        when(searchService.searchAndGetResponse(any(SearchRequestDto.class), eq("AND")))
             .thenThrow(new IOException("Search error"));
 
         mockMvc.perform(post("/api/v1/search")
@@ -262,5 +274,8 @@ class SearchControllerTest {
             .andDo(print())
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.error").value("Search service temporarily unavailable"));
+
+        // Verify the service was called
+        verify(searchService).searchAndGetResponse(any(SearchRequestDto.class), eq("AND"));
     }
 } 

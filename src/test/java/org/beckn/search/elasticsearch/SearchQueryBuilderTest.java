@@ -69,21 +69,64 @@ class SearchQueryBuilderTest {
 
     @Test
     void testBuildSearchQueryWithItems() {
+        SearchRequestDto request = new SearchRequestDto();
+        Context context = new Context();
+        context.setDomain("test-domain");
+        context.setTransactionId("txn-123");
+        context.setMessageId("msg-123");
+        context.setTimestamp("2024-03-15T10:00:00Z");
+        request.setContext(context);
+
+        Message message = new Message();
+        Intent intent = new Intent();
         Item item = new Item();
-        Descriptor descriptor = new Descriptor();
-        descriptor.setName("Test Item");
-        item.setDescriptor(descriptor);
         
+        // Add a descriptor with multiple non-null fields
+        Descriptor itemDescriptor = new Descriptor();
+        itemDescriptor.setName("Test Product");
+        itemDescriptor.setCode("TP001");
+        itemDescriptor.setShortDesc("A test product");
+        itemDescriptor.setLongDesc("A detailed description of the test product");
+        item.setDescriptor(itemDescriptor);
+        
+        // Add a price with multiple non-null fields
         Price price = new Price();
-        price.setCurrency("INR");
         price.setValue("100");
+        price.setCurrency("INR");
+        price.setMinimumValue("90");
+        price.setMaximumValue("110");
         item.setPrice(price);
         
-        request.getMessage().getIntent().setItems(Arrays.asList(item));
+        // Add location information
+        Location location = new Location();
+        Location.Country country = new Location.Country();
+        country.setName("Test Country");
+        country.setCode("test-country");
+        location.setCountry(country);
+        
+        Location.City city = new Location.City();
+        city.setName("Test City");
+        city.setCode("test-city");
+        location.setCity(city);
+        context.setLocation(location);
+        
+        // Add provider information
+        Provider provider = new Provider();
+        provider.setId("test-provider");
+        Descriptor providerDesc = new Descriptor();
+        providerDesc.setName("Test Provider");
+        providerDesc.setCode("TP001");
+        provider.setDescriptor(providerDesc);
+        intent.setProvider(provider);
+        
+        intent.setItems(Arrays.asList(item));
+        message.setIntent(intent);
+        request.setMessage(message);
 
         Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
         assertNotNull(query);
-        assertTrue(query.bool().must().size() > 0);
+        assertNotNull(query.bool());
+        assertTrue(!query.bool().must().isEmpty(), "Query should have must clauses");
     }
 
     @Test
@@ -93,11 +136,33 @@ class SearchQueryBuilderTest {
         category.setId("test-category");
         provider.setCategories(Arrays.asList(category));
         
+        // Add a descriptor with multiple non-null fields
+        Descriptor providerDesc = new Descriptor();
+        providerDesc.setName("Test Provider");
+        providerDesc.setCode("TP001");
+        providerDesc.setShortDesc("A test provider");
+        providerDesc.setLongDesc("A detailed description of the test provider");
+        provider.setDescriptor(providerDesc);
+        
+        // Add location information
+        Location location = new Location();
+        Location.Country country = new Location.Country();
+        country.setName("Test Country");
+        country.setCode("test-country");
+        location.setCountry(country);
+        
+        Location.City city = new Location.City();
+        city.setName("Test City");
+        city.setCode("test-city");
+        location.setCity(city);
+        request.getContext().setLocation(location);
+        
         request.getMessage().getIntent().setProvider(provider);
 
         Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
         assertNotNull(query);
-        assertTrue(query.bool().must().size() > 0);
+        assertNotNull(query.bool());
+        assertTrue(!query.bool().must().isEmpty(), "Query should have must clauses");
     }
 
     @Test
@@ -157,17 +222,10 @@ class SearchQueryBuilderTest {
         assertNotNull(query, "Query should not be null");
         assertNotNull(query.bool(), "Query should be a boolean query");
         
-        // Verify that we have should clauses with minimum should match
+        // Verify that we have should clauses
         BoolQuery boolQuery = query.bool();
-        assertFalse(boolQuery.must().isEmpty(), "Query should have must clauses for the main bool");
-        
-        // Each subquery should have should clauses
-        boolQuery.must().forEach(subQuery -> {
-            if (subQuery.bool() != null) {
-                assertFalse(subQuery.bool().should().isEmpty(), "Subqueries should have should clauses");
-                assertEquals("1", subQuery.bool().minimumShouldMatch(), "Minimum should match should be 1");
-            }
-        });
+        assertFalse(boolQuery.should().isEmpty(), "Query should have should clauses");
+        assertTrue(boolQuery.must().isEmpty(), "Query should not have must clauses for OR operator");
     }
 
     @Test
