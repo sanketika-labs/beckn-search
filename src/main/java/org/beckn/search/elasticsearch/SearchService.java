@@ -86,16 +86,20 @@ public class SearchService {
     public String searchAndGetRawCatalog(SearchRequestDto request, int pageNum, int pageSize, SearchQueryBuilder.LogicalOperator operator) throws IOException {
         SearchResponse<Map> response = search(request, pageNum, pageSize, operator);
         
-        // If there are hits, return the raw_catalog from the first hit
-        if (!response.hits().hits().isEmpty()) {
-            Hit<Map> firstHit = response.hits().hits().get(0);
-            if (firstHit.source() != null && firstHit.source().containsKey("raw_catalog")) {
-                return firstHit.source().get("raw_catalog").toString();
-            }
+        // Extract raw_catalog from all hits
+        List<String> rawCatalogs = response.hits().hits().stream()
+            .map(hit -> (Map<String, Object>) hit.source())
+            .filter(source -> source != null && source.containsKey("raw_catalog"))
+            .map(source -> source.get("raw_catalog").toString())
+            .collect(Collectors.toList());
+        
+        // If no hits found, return empty array
+        if (rawCatalogs.isEmpty()) {
+            return "[]";
         }
         
-        // If no raw_catalog found, return empty array
-        return "[]";
+        // Return the raw catalogs as a JSON array
+        return objectMapper.writeValueAsString(rawCatalogs);
     }
 
     public String searchAndGetRawCatalog(SearchRequestDto request) throws IOException {

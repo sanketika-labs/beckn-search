@@ -117,6 +117,15 @@ class SearchServiceTest {
         // Setup mock transformer
         when(responseTransformer.transformToResponse(any()))
             .thenReturn(mockResponse);
+            
+        // Setup mock object mapper
+        ObjectMapper realObjectMapper = new ObjectMapper();
+        when(objectMapper.writeValueAsString(any()))
+            .thenAnswer(invocation -> realObjectMapper.writeValueAsString(invocation.getArgument(0)));
+        when(objectMapper.readTree((String) any()))
+            .thenAnswer(invocation -> realObjectMapper.readTree((String) invocation.getArgument(0)));
+        when(objectMapper.valueToTree(any()))
+            .thenAnswer(invocation -> realObjectMapper.valueToTree(invocation.getArgument(0)));
     }
 
     @Test

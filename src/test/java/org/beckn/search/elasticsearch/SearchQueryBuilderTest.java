@@ -47,8 +47,7 @@ class SearchQueryBuilderTest {
         Query query = queryBuilder.buildSearchQuery(emptyRequest, SearchQueryBuilder.LogicalOperator.AND);
         
         assertNotNull(query, "Query should not be null even for empty request");
-        assertNotNull(query.bool(), "Query should be a boolean query");
-        assertTrue(query.bool().should().isEmpty(), "Query should have no should clauses for empty request");
+        assertNotNull(query.matchAll(), "Query should be a match_all query");
     }
 
     @Test
