@@ -10,6 +10,7 @@ import org.springframework.core.io.ClassPathResource;
 
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,7 +34,7 @@ class SearchQueryBuilderTest {
     @Test
     void testBuildSearchQuery() throws Exception {
         SearchRequestDto request = objectMapper.readValue(sampleJson, SearchRequestDto.class);
-        Query query = queryBuilder.buildSearchQuery(request);
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.OR);
         
         assertNotNull(query, "Query should not be null");
         assertNotNull(query.bool(), "Query should be a boolean query");
@@ -43,7 +44,7 @@ class SearchQueryBuilderTest {
     @Test
     void testBuildSearchQueryWithEmptyRequest() {
         SearchRequestDto emptyRequest = new SearchRequestDto();
-        Query query = queryBuilder.buildSearchQuery(emptyRequest);
+        Query query = queryBuilder.buildSearchQuery(emptyRequest, SearchQueryBuilder.LogicalOperator.AND);
         
         assertNotNull(query, "Query should not be null even for empty request");
         assertNotNull(query.bool(), "Query should be a boolean query");
@@ -61,9 +62,9 @@ class SearchQueryBuilderTest {
         
         request.getMessage().getIntent().setProvider(provider);
 
-        Query query = queryBuilder.buildSearchQuery(request);
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
         assertNotNull(query);
-        assertTrue(query.bool().should().size() > 0);
+        assertTrue(query.bool().must().size() > 0);
     }
 
     @Test
@@ -80,9 +81,9 @@ class SearchQueryBuilderTest {
         
         request.getMessage().getIntent().setItems(Arrays.asList(item));
 
-        Query query = queryBuilder.buildSearchQuery(request);
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
         assertNotNull(query);
-        assertTrue(query.bool().should().size() > 0);
+        assertTrue(query.bool().must().size() > 0);
     }
 
     @Test
@@ -94,9 +95,9 @@ class SearchQueryBuilderTest {
         
         request.getMessage().getIntent().setProvider(provider);
 
-        Query query = queryBuilder.buildSearchQuery(request);
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
         assertNotNull(query);
-        assertTrue(query.bool().should().size() > 0);
+        assertTrue(query.bool().must().size() > 0);
     }
 
     @Test
@@ -129,9 +130,163 @@ class SearchQueryBuilderTest {
         request.getMessage().getIntent().setProvider(provider);
         request.getMessage().getIntent().setItems(Arrays.asList(item));
 
-        Query query = queryBuilder.buildSearchQuery(request);
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
         assertNotNull(query);
-        assertTrue(query.bool().should().size() > 0);
+        assertTrue(query.bool().must().size() > 0);
+    }
+
+    @Test
+    void testBuildSearchQueryWithAndOperator() throws Exception {
+        SearchRequestDto request = objectMapper.readValue(sampleJson, SearchRequestDto.class);
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
+        
+        assertNotNull(query, "Query should not be null");
+        assertNotNull(query.bool(), "Query should be a boolean query");
+        
+        // Verify that we have must clauses instead of should clauses
+        BoolQuery boolQuery = query.bool();
+        assertFalse(boolQuery.must().isEmpty(), "Query should have must clauses");
+        assertTrue(boolQuery.should().isEmpty(), "Query should not have should clauses");
+    }
+
+    @Test
+    void testBuildSearchQueryWithOrOperator() throws Exception {
+        SearchRequestDto request = objectMapper.readValue(sampleJson, SearchRequestDto.class);
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.OR);
+        
+        assertNotNull(query, "Query should not be null");
+        assertNotNull(query.bool(), "Query should be a boolean query");
+        
+        // Verify that we have should clauses with minimum should match
+        BoolQuery boolQuery = query.bool();
+        assertFalse(boolQuery.must().isEmpty(), "Query should have must clauses for the main bool");
+        
+        // Each subquery should have should clauses
+        boolQuery.must().forEach(subQuery -> {
+            if (subQuery.bool() != null) {
+                assertFalse(subQuery.bool().should().isEmpty(), "Subqueries should have should clauses");
+                assertEquals("1", subQuery.bool().minimumShouldMatch(), "Minimum should match should be 1");
+            }
+        });
+    }
+
+    @Test
+    void testBuildSearchQueryWithComplexFiltersAndAndOperator() {
+        Provider provider = new Provider();
+        provider.setId("test-provider");
+        
+        Descriptor providerDesc = new Descriptor();
+        providerDesc.setName("Test Provider");
+        providerDesc.setCode("TP001");
+        provider.setDescriptor(providerDesc);
+        
+        Category category = new Category();
+        category.setId("test-category");
+        provider.setCategories(Arrays.asList(category));
+        
+        Item item = new Item();
+        Descriptor itemDesc = new Descriptor();
+        itemDesc.setName("Test Item");
+        itemDesc.setCode("TI001");
+        item.setDescriptor(itemDesc);
+        
+        Price price = new Price();
+        price.setCurrency("INR");
+        price.setValue("100");
+        price.setMinimumValue("90");
+        price.setMaximumValue("110");
+        item.setPrice(price);
+        
+        request.getMessage().getIntent().setProvider(provider);
+        request.getMessage().getIntent().setItems(Arrays.asList(item));
+
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
+        assertNotNull(query);
+        assertTrue(query.bool().must().size() > 0);
+    }
+
+    @Test
+    void testBuildSearchQueryWithNullRequest() {
+        SearchRequestDto emptyRequest = null;
+        assertThrows(NullPointerException.class, () -> queryBuilder.buildSearchQuery(emptyRequest, SearchQueryBuilder.LogicalOperator.AND));
+    }
+
+    @Test
+    void testBuildSearchQueryWithLocationFilters() {
+        SearchRequestDto request = new SearchRequestDto();
+        Context context = new Context();
+        request.setContext(context);
+
+        Message message = new Message();
+        Intent intent = new Intent();
+        Location location = new Location();
+        
+        Location.Country country = new Location.Country();
+        country.setName("India");
+        country.setCode("IND");
+        location.setCountry(country);
+        
+        Location.City city = new Location.City();
+        city.setName("Bangalore");
+        city.setCode("std:080");
+        location.setCity(city);
+        
+        context.setLocation(location);
+        message.setIntent(intent);
+        request.setMessage(message);
+
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
+        assertNotNull(query);
+    }
+
+    @Test
+    void testBuildSearchQueryWithItemFilters() {
+        SearchRequestDto request = new SearchRequestDto();
+        Context context = new Context();
+        request.setContext(context);
+
+        Message message = new Message();
+        Intent intent = new Intent();
+        Item item = new Item();
+        Descriptor itemDescriptor = new Descriptor();
+        itemDescriptor.setName("Test Product");
+        item.setDescriptor(itemDescriptor);
+        intent.setItems(Arrays.asList(item));
+        message.setIntent(intent);
+        request.setMessage(message);
+
+        Query query = queryBuilder.buildSearchQuery(request, SearchQueryBuilder.LogicalOperator.AND);
+        assertNotNull(query);
+    }
+
+    @Test
+    void testFlattenFields() {
+        SearchRequestDto request = new SearchRequestDto();
+        Context context = new Context();
+        context.setDomain("test-domain");
+        request.setContext(context);
+
+        Message message = new Message();
+        Intent intent = new Intent();
+        
+        Item item = new Item();
+        Descriptor itemDescriptor = new Descriptor();
+        itemDescriptor.setName("Test Product");
+        item.setDescriptor(itemDescriptor);
+        intent.setItems(Arrays.asList(item));
+        
+        Provider provider = new Provider();
+        Descriptor providerDescriptor = new Descriptor();
+        providerDescriptor.setName("Test Provider");
+        provider.setDescriptor(providerDescriptor);
+        intent.setProvider(provider);
+        
+        message.setIntent(intent);
+        request.setMessage(message);
+
+        Map<String, Object> flattenedFields = queryBuilder.flattenFields("", request);
+        assertNotNull(flattenedFields);
+        assertFalse(flattenedFields.isEmpty());
     }
 
     private SearchRequestDto createSampleRequest() {

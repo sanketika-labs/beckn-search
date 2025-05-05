@@ -51,11 +51,11 @@ public class SearchResponseTransformer {
             if (rawCatalogNode.has("descriptor")) {
                 JsonNode descriptorNode = rawCatalogNode.get("descriptor");
                 if (descriptorNode != null && !descriptorNode.isNull()) {
-                    SearchResponseDto.Descriptor descriptor = objectMapper.treeToValue(
+                SearchResponseDto.Descriptor descriptor = objectMapper.treeToValue(
                         descriptorNode, 
-                        SearchResponseDto.Descriptor.class
-                    );
-                    catalog.setDescriptor(descriptor);
+                    SearchResponseDto.Descriptor.class
+                );
+                catalog.setDescriptor(descriptor);
                 }
             }
             
@@ -63,7 +63,7 @@ public class SearchResponseTransformer {
             if (rawCatalogNode.has("providers")) {
                 catalog.setProviders(rawCatalogNode.get("providers"));
             }
-            
+
             message.setCatalog(catalog);
             response.setMessage(message);
             

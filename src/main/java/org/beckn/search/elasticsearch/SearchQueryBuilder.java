@@ -7,6 +7,7 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.beckn.search.model.SearchRequestDto;
+import org.beckn.search.model.Location;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -15,85 +16,69 @@ import java.util.stream.Collectors;
 @Component
 public class SearchQueryBuilder {
     private final ObjectMapper objectMapper;
+    
+    public enum LogicalOperator {
+        AND,
+        OR
+    }
 
     public SearchQueryBuilder(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
-    public Query buildSearchQuery(SearchRequestDto request) {
-        List<Query> shouldQueries = new ArrayList<>();
-        
-        // Handle null request or missing intent
-        if (request == null || request.getMessage() == null || request.getMessage().getIntent() == null) {
-            return QueryBuilders.bool()
-                .should(shouldQueries)
-                .build()._toQuery();
-        }
-        
-        // Get the intent node from the request
-        JsonNode intentNode = objectMapper.valueToTree(request.getMessage().getIntent());
-        Map<String, Object> flattenedFields = new HashMap<>();
-        
-        // Flatten the intent fields
-        flattenFields("", intentNode, flattenedFields);
-        
-        // Build queries from flattened fields
-        flattenedFields.forEach((fieldPath, value) -> {
-            if (value != null) {
-                if (value instanceof List<?>) {
-                    // Handle array values with terms query
-                    List<?> values = (List<?>) value;
-                    if (!values.isEmpty()) {
-                        List<FieldValue> fieldValues = values.stream()
-                            .map(v -> FieldValue.of(v.toString()))
-                            .collect(Collectors.toList());
-                            
-                        shouldQueries.add(QueryBuilders.terms()
-                            .field(fieldPath)
-                            .terms(builder -> builder.value(fieldValues))
-                            .build()._toQuery());
-                    }
-                } else {
-                    // Handle single value with match query
-                    shouldQueries.add(QueryBuilders.match()
-                        .field(fieldPath)
-                        .query(value.toString())
-                        .build()._toQuery());
+    public Query buildSearchQuery(SearchRequestDto request, LogicalOperator operator) {
+        BoolQuery.Builder mainQuery = new BoolQuery.Builder();
+        List<Query> queries = new ArrayList<>();
+
+        // Add intent filters
+        if (request.getMessage() != null && request.getMessage().getIntent() != null) {
+            Map<String, Object> flattenedFields = flattenFields("", request.getMessage().getIntent());
+            for (Map.Entry<String, Object> entry : flattenedFields.entrySet()) {
+                if (entry.getValue() != null) {
+                    Query query = QueryBuilders.matchPhrase()
+                        .field(entry.getKey())
+                        .query(entry.getValue().toString())
+                        .build()
+                        ._toQuery();
+                    queries.add(query);
                 }
             }
-        });
-        
-        return QueryBuilders.bool()
-            .should(shouldQueries)
-            .build()._toQuery();
+        }
+
+        if (operator == LogicalOperator.AND) {
+            mainQuery.must(queries);
+        } else {
+            mainQuery.should(queries);
+        }
+
+        return mainQuery.build()._toQuery();
     }
 
-    private void flattenFields(String prefix, JsonNode node, Map<String, Object> flattenedFields) {
-        if (node == null) {
-            return;
-        }
-        
-        if (node.isObject()) {
-            node.fields().forEachRemaining(entry -> {
-                String newPrefix = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
-                flattenFields(newPrefix, entry.getValue(), flattenedFields);
+    public Map<String, Object> flattenFields(String prefix, Object object) {
+        Map<String, Object> flattenedFields = new HashMap<>();
+        JsonNode jsonNode = objectMapper.valueToTree(object);
+        flattenFieldsRecursive(prefix, jsonNode, flattenedFields);
+        return flattenedFields;
+    }
+
+    private void flattenFieldsRecursive(String prefix, JsonNode jsonNode, Map<String, Object> flattenedFields) {
+        if (jsonNode.isObject()) {
+            jsonNode.fields().forEachRemaining(entry -> {
+                String newPrefix = prefix.isEmpty() ? entry.getKey() : prefix + "_" + entry.getKey();
+                flattenFieldsRecursive(newPrefix, entry.getValue(), flattenedFields);
             });
-        } else if (node.isArray()) {
-            List<Object> values = new ArrayList<>();
-            node.elements().forEachRemaining(element -> {
-                if (element.isObject()) {
-                    // For objects in arrays, flatten their fields individually
-                    flattenFields(prefix, element, flattenedFields);
-                } else {
-                    // For primitive values, collect them for terms query
+        } else if (jsonNode.isArray()) {
+            List<String> values = new ArrayList<>();
+            jsonNode.elements().forEachRemaining(element -> {
+                if (element.isTextual()) {
                     values.add(element.asText());
                 }
             });
             if (!values.isEmpty()) {
                 flattenedFields.put(prefix, values);
             }
-        } else if (!node.isNull()) {
-            flattenedFields.put(prefix, node.asText());
+        } else if (!jsonNode.isNull()) {
+            flattenedFields.put(prefix, jsonNode.asText());
         }
     }
 } 

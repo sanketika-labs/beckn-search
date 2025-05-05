@@ -5,12 +5,9 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.beckn.search.model.SearchRequestDto;
-import org.beckn.search.model.Context;
-import org.beckn.search.model.Message;
-import org.beckn.search.model.Intent;
-import org.beckn.search.model.Location;
+import org.beckn.search.model.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +30,7 @@ import java.util.Map;
 import java.time.Duration;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -52,7 +50,7 @@ class ElasticsearchIntegrationTest {
             .waitingFor(
                 Wait.forLogMessage(".*started.*", 1)
                     .withStartupTimeout(Duration.ofMinutes(5))
-            );
+    );
 
     @DynamicPropertySource
     static void elasticsearchProperties(DynamicPropertyRegistry registry) {
@@ -143,9 +141,9 @@ class ElasticsearchIntegrationTest {
                     String mappingJson = loadResourceAsString("/elasticsearch/mapping.json");
                     elasticsearchClient.indices().create(builder -> 
                         builder.index(INDEX_NAME)
-                        .withJson(new StringReader(mappingJson))
-                    );
-                }
+                .withJson(new StringReader(mappingJson))
+            );
+        }
                 return;
             } catch (Exception e) {
                 lastException = e;
@@ -222,24 +220,67 @@ class ElasticsearchIntegrationTest {
     }
 
     @Test
-    void testSearchExecution() throws IOException {
-        SearchResponse<Map> response = searchService.search(searchRequest);
-        
-        assertNotNull(response, "Search response should not be null");
-        assertTrue(response.hits().total().value() > 0, "Should find matching documents");
-    }
-
-    @Test
     void testResponseMapping() throws IOException {
-        SearchResponse<Map> response = searchService.search(searchRequest);
+        String rawCatalog = searchService.searchAndGetRawCatalog(searchRequest);
         
-        assertNotNull(response, "Search response should not be null");
-        assertTrue(response.hits().total().value() > 0, "Should find matching documents");
+        assertNotNull(rawCatalog, "Raw catalog should not be null");
+        assertNotEquals("[]", rawCatalog, "Raw catalog should not be empty");
         
-        response.hits().hits().forEach(hit -> {
-            assertNotNull(hit.source(), "Document source should not be null");
-            assertTrue(hit.source().containsKey("name"), "Document should have a name field");
-            assertTrue(hit.source().containsKey("description"), "Document should have a description field");
-        });
+        // Verify it's valid JSON
+        JsonNode catalogNode = objectMapper.readTree(rawCatalog);
+        assertTrue(catalogNode.isArray() || catalogNode.isObject(), "Raw catalog should be valid JSON array or object");
+    }
+    
+    @Test
+    void testSearchWithIntentFilters() throws IOException {
+        // Create a search request with specific intent filters
+        SearchRequestDto request = new SearchRequestDto();
+        Context context = new Context();
+        context.setDomain("test-domain");
+        request.setContext(context);
+        
+        Message message = new Message();
+        Intent intent = new Intent();
+        
+        // Add item filter
+        Item item = new Item();
+        Descriptor itemDescriptor = new Descriptor();
+        itemDescriptor.setName("Test Product 2");
+        item.setDescriptor(itemDescriptor);
+        intent.setItems(Arrays.asList(item));
+        
+        // Add provider filter
+        Provider provider = new Provider();
+        Descriptor providerDescriptor = new Descriptor();
+        providerDescriptor.setName("Provider 2");
+        provider.setDescriptor(providerDescriptor);
+        intent.setProvider(provider);
+        
+        message.setIntent(intent);
+        request.setMessage(message);
+
+        // Search and get response
+        SearchResponseDto response = searchService.searchAndGetResponse(request, "AND");
+        
+        // Verify the response
+        assertNotNull(response, "Response should not be null");
+        assertNotNull(response.getMessage(), "Message should not be null");
+        assertNotNull(response.getMessage().getCatalog(), "Catalog should not be null");
+        assertNotNull(response.getMessage().getCatalog().getProviders(), "Providers should not be null");
+        
+        // Verify that we get exactly one record
+        JsonNode providers = response.getMessage().getCatalog().getProviders();
+        assertEquals(1, providers.size(), "Should return exactly one provider");
+        
+        // Verify the provider details
+        JsonNode provider1 = providers.get(0);
+        assertEquals("Provider 2", provider1.get("descriptor").get("name").asText(), "Provider name should match");
+        
+        // Verify the item details
+        JsonNode items = provider1.get("items");
+        assertNotNull(items, "Items should not be null");
+        assertTrue(items.isArray(), "Items should be an array");
+        assertEquals(1, items.size(), "Should have exactly one item");
+        assertEquals("Test Product 2", items.get(0).get("descriptor").get("name").asText(), "Item name should match");
     }
 } 

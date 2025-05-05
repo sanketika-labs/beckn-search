@@ -1,26 +1,20 @@
 [
   {
-    "name": "Test Product 1",
-    "description": "This is a test product description",
-    "category": "test-category",
-    "location": {
-      "lat": 12.9716,
-      "lon": 77.5946
-    },
-    "price": 100.0,
-    "rating": 4.5,
-    "tags": ["test", "sample"]
+    "items_descriptor_name": ["Test Product 1"],
+    "provider_descriptor_name": "Provider 1",
+    "location_country_name": "Test Country",
+    "location_country_code": "test-country",
+    "location_city_name": "Test City",
+    "location_city_code": "test-city",
+    "raw_catalog": "{\"message\":{\"catalog\":{\"descriptor\":{\"name\":\"Test Catalog 1\"},\"providers\":[{\"id\":\"provider1\",\"descriptor\":{\"name\":\"Provider 1\"},\"items\":[{\"id\":\"test-product-1\",\"descriptor\":{\"name\":\"Test Product 1\"},\"price\":{\"value\":\"24\",\"currency\":\"USD\"}}]}]}}}"
   },
   {
-    "name": "Test Product 2",
-    "description": "Another test product description",
-    "category": "test-category-2",
-    "location": {
-      "lat": 13.0827,
-      "lon": 80.2707
-    },
-    "price": 200.0,
-    "rating": 4.0,
-    "tags": ["test", "example"]
+    "items_descriptor_name": ["Test Product 2"],
+    "provider_descriptor_name": "Provider 2",
+    "location_country_name": "Test Country",
+    "location_country_code": "test-country",
+    "location_city_name": "Test City",
+    "location_city_code": "test-city",
+    "raw_catalog": "{\"message\":{\"catalog\":{\"descriptor\":{\"name\":\"Test Catalog 2\"},\"providers\":[{\"id\":\"provider2\",\"descriptor\":{\"name\":\"Provider 2\"},\"items\":[{\"id\":\"test-product-2\",\"descriptor\":{\"name\":\"Test Product 2\"},\"price\":{\"value\":\"48\",\"currency\":\"USD\"}}]}]}}}"
   }
-] 
+]

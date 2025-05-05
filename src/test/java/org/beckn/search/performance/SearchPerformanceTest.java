@@ -5,7 +5,6 @@ import org.beckn.search.api.SearchController;
 import org.beckn.search.elasticsearch.SearchService;
 import org.beckn.search.model.SearchRequestDto;
 import org.beckn.search.model.SearchResponseDto;
-import org.beckn.search.transformer.SearchResponseTransformer;
 import org.beckn.search.validation.SearchRequestValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,9 +44,6 @@ class SearchPerformanceTest {
 
     @MockBean
     private SearchService searchService;
-
-    @MockBean
-    private SearchResponseTransformer responseTransformer;
 
     @MockBean
     private SearchRequestValidator requestValidator;
@@ -167,9 +164,9 @@ class SearchPerformanceTest {
 
         mockResponse = objectMapper.readValue(catalogJson, SearchResponseDto.class);
         
-        when(searchService.searchAndGetRawCatalog(any(SearchRequestDto.class), any(Integer.class), any(Integer.class)))
-            .thenReturn(catalogJson);
-        when(responseTransformer.transformToResponse(catalogJson)).thenReturn(mockResponse);
+        // Mock service response
+        when(searchService.searchAndGetResponse(any(SearchRequestDto.class), eq("OR")))
+            .thenReturn(mockResponse);
     }
 
     @Test
@@ -203,7 +200,7 @@ class SearchPerformanceTest {
                     for (int j = 0; j < requestsPerThread; j++) {
                         long startTime = System.currentTimeMillis();
                         
-                        mockMvc.perform(post("/search")
+                        mockMvc.perform(post("/api/v1/search")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(sampleJson))
                             .andExpect(status().isOk());
@@ -243,7 +240,7 @@ class SearchPerformanceTest {
     void testLargeResultSet() throws Exception {
         long startTime = System.currentTimeMillis();
         
-        MvcResult result = mockMvc.perform(post("/search")
+        MvcResult result = mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(complexJson))
             .andExpect(status().isOk())
@@ -263,7 +260,7 @@ class SearchPerformanceTest {
     void testComplexQueries() throws Exception {
         long startTime = System.currentTimeMillis();
         
-        MvcResult result = mockMvc.perform(post("/search")
+        MvcResult result = mockMvc.perform(post("/api/v1/search")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(complexJson))
             .andExpect(status().isOk())

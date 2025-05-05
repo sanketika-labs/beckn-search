@@ -6,15 +6,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.beckn.search.elasticsearch.SearchService;
 import org.beckn.search.model.SearchRequestDto;
 import org.beckn.search.model.SearchResponseDto;
-import org.beckn.search.transformer.SearchResponseTransformer;
 import org.beckn.search.validation.SearchRequestValidator;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,24 +24,23 @@ import java.io.IOException;
 public class SearchController {
     private static final Logger logger = LoggerFactory.getLogger(SearchController.class);
     private final SearchService searchService;
-    private final SearchResponseTransformer responseTransformer;
     private final SearchRequestValidator requestValidator;
 
     @Autowired
     public SearchController(SearchService searchService,
-                          SearchResponseTransformer responseTransformer,
                           SearchRequestValidator requestValidator) {
         this.searchService = searchService;
-        this.responseTransformer = responseTransformer;
         this.requestValidator = requestValidator;
     }
 
     @PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> search(@Valid @RequestBody SearchRequestDto request) {
+    public ResponseEntity<?> search(
+            @Valid @RequestBody SearchRequestDto request,
+            @RequestParam(value = "operator", defaultValue = "AND") String operator) {
         try {
             // Validate the request
             requestValidator.validate(request);
-            
+
             // Extract pagination parameters from the message
             int pageNum = 0;
             int pageSize = 10;
@@ -56,10 +51,9 @@ public class SearchController {
                     request.getMessage().getIntent().getLimit() : 10;
             }
             
-            // Get raw catalog and transform to response
-            String rawCatalog = searchService.searchAndGetRawCatalog(request, pageNum, pageSize);
-            SearchResponseDto responseDto = responseTransformer.transformToResponse(rawCatalog);
-            
+            // Get response directly from service
+            SearchResponseDto responseDto = searchService.searchAndGetResponse(request, operator);
+
             return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(responseDto);
@@ -75,17 +69,11 @@ public class SearchController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new ErrorResponse("Search service temporarily unavailable"));
-                
-        } catch (Exception e) {
-            logger.error("Unexpected error during search: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(new ErrorResponse("Internal server error"));
         }
     }
-}
 
-@Data
-class ErrorResponse {
-    private final String error;
+    @Data
+    private static class ErrorResponse {
+        private final String error;
+    }
 } 

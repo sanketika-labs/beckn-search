@@ -15,6 +15,7 @@ public class SearchRequestValidator {
     private final Validator validator;
 
     public void validate(SearchRequestDto request) {
+        System.out.println(request.getMessage());
         Set<ConstraintViolation<SearchRequestDto>> violations = validator.validate(request);
         if (!violations.isEmpty()) {
             String errorMessage = violations.stream()

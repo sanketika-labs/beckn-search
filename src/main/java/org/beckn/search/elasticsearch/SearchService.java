@@ -6,6 +6,8 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.beckn.search.model.SearchRequestDto;
+import org.beckn.search.model.SearchResponseDto;
+import org.beckn.search.transformer.SearchResponseTransformer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ public class SearchService {
     private final ElasticsearchClient elasticsearchClient;
     private final SearchQueryBuilder queryBuilder;
     private final ObjectMapper objectMapper;
+    private final SearchResponseTransformer responseTransformer;
 
     @Value("${elasticsearch.max.results:100}")
     private int maxResults;
@@ -30,8 +33,16 @@ public class SearchService {
     @Value("${elasticsearch.default.page.size:10}")
     private int defaultPageSize;
 
-    @Cacheable(value = "searchResults", key = "#request.toString() + #pageNum + #pageSize")
-    public SearchResponse<Map> search(SearchRequestDto request, int pageNum, int pageSize) throws IOException {
+    public SearchQueryBuilder.LogicalOperator parseOperator(String operator) {
+        try {
+            return SearchQueryBuilder.LogicalOperator.valueOf(operator.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid operator. Must be either 'AND' or 'OR'");
+        }
+    }
+
+    @Cacheable(value = "searchResults", key = "#request.toString() + #pageNum + #pageSize + #operator")
+    public SearchResponse<Map> search(SearchRequestDto request, int pageNum, int pageSize, SearchQueryBuilder.LogicalOperator operator) throws IOException {
         if (request.getContext() == null || request.getContext().getDomain() == null) {
             throw new IllegalArgumentException("Domain must be specified in the request context");
         }
@@ -44,7 +55,7 @@ public class SearchService {
             throw new IllegalArgumentException("Index '" + indexName + "' does not exist");
         }
         
-        var query = queryBuilder.buildSearchQuery(request);
+        var query = queryBuilder.buildSearchQuery(request, operator);
         
         // Validate and adjust pagination parameters
         final int validatedSize = Math.min(pageSize > 0 ? pageSize : defaultPageSize, maxResults);
@@ -64,38 +75,48 @@ public class SearchService {
     }
 
     public SearchResponse<Map> search(SearchRequestDto request) throws IOException {
-        return search(request, 0, defaultPageSize);
+        return search(request, 0, defaultPageSize, SearchQueryBuilder.LogicalOperator.AND);
     }
 
-    @Cacheable(value = "rawCatalog", key = "#request.toString() + #pageNum + #pageSize")
-    public String searchAndGetRawCatalog(SearchRequestDto request, int pageNum, int pageSize) throws IOException {
-        SearchResponse<Map> response = search(request, pageNum, pageSize);
-        Map<String, Object> catalogWrapper = new HashMap<>();
-        Map<String, Object> message = new HashMap<>();
-        Map<String, Object> catalog = new HashMap<>();
+    public SearchResponse<Map> search(SearchRequestDto request, String operator) throws IOException {
+        return search(request, 0, defaultPageSize, parseOperator(operator));
+    }
+
+    @Cacheable(value = "rawCatalog", key = "#request.toString() + #pageNum + #pageSize + #operator")
+    public String searchAndGetRawCatalog(SearchRequestDto request, int pageNum, int pageSize, SearchQueryBuilder.LogicalOperator operator) throws IOException {
+        SearchResponse<Map> response = search(request, pageNum, pageSize, operator);
         
-        // Add descriptor
-        Map<String, Object> descriptor = new HashMap<>();
-        descriptor.put("name", "EcoCharge-Retail-Catalog");
-        catalog.put("descriptor", descriptor);
-        
-        // Add search results as providers
+        // If there are hits, return the raw_catalog from the first hit
         if (!response.hits().hits().isEmpty()) {
-            List<Map<String, Object>> providers = response.hits().hits().stream()
-                .map(hit -> (Map<String, Object>) hit.source())
-                .collect(Collectors.toList());
-            catalog.put("providers", providers);
-        } else {
-            catalog.put("providers", Collections.emptyList());
+            Hit<Map> firstHit = response.hits().hits().get(0);
+            if (firstHit.source() != null && firstHit.source().containsKey("raw_catalog")) {
+                return firstHit.source().get("raw_catalog").toString();
+            }
         }
         
-        message.put("catalog", catalog);
-        catalogWrapper.put("message", message);
-        
-        return objectMapper.writeValueAsString(catalogWrapper);
+        // If no raw_catalog found, return empty array
+        return "[]";
     }
 
     public String searchAndGetRawCatalog(SearchRequestDto request) throws IOException {
-        return searchAndGetRawCatalog(request, 0, defaultPageSize);
+        return searchAndGetRawCatalog(request, 0, defaultPageSize, SearchQueryBuilder.LogicalOperator.AND);
+    }
+
+    public String searchAndGetRawCatalog(SearchRequestDto request, String operator) throws IOException {
+        return searchAndGetRawCatalog(request, 0, defaultPageSize, parseOperator(operator));
+    }
+
+    @Cacheable(value = "searchResponse", key = "#request.toString() + #pageNum + #pageSize + #operator")
+    public SearchResponseDto searchAndGetResponse(SearchRequestDto request, int pageNum, int pageSize, SearchQueryBuilder.LogicalOperator operator) throws IOException {
+        String rawCatalog = searchAndGetRawCatalog(request, pageNum, pageSize, operator);
+        return responseTransformer.transformToResponse(rawCatalog);
+    }
+
+    public SearchResponseDto searchAndGetResponse(SearchRequestDto request) throws IOException {
+        return searchAndGetResponse(request, 0, defaultPageSize, SearchQueryBuilder.LogicalOperator.AND);
+    }
+
+    public SearchResponseDto searchAndGetResponse(SearchRequestDto request, String operator) throws IOException {
+        return searchAndGetResponse(request, 0, defaultPageSize, parseOperator(operator));
     }
 } 
