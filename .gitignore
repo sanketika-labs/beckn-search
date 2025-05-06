@@ -106,3 +106,7 @@ node_modules/
 # Logs
 logs/
 
+
+.cursor
+
+SEARCH_IMPLEMENTATION.md

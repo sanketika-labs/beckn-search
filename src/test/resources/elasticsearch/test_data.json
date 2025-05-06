@@ -1,0 +1,14 @@
+[
+  {
+    "provider_descriptor_name": "Provider 1",
+    "items_descriptor_name": ["Test Product 1"],
+    "location_gps": "30.2672,-97.7431",
+    "raw_catalog": "{\"message\":{\"catalog\":{\"descriptor\":{\"name\":\"Test Catalog 1\"},\"providers\":[{\"id\":\"provider1\",\"descriptor\":{\"name\":\"Provider 1\"},\"locations\":[{\"id\":\"loc1\",\"gps\":\"30.2672,-97.7431\"}],\"items\":[{\"id\":\"test-product-1\",\"descriptor\":{\"name\":\"Test Product 1\"},\"price\":{\"value\":\"24\",\"currency\":\"USD\"}}]}]}}}"
+  },
+  {
+    "provider_descriptor_name": "Provider 2",
+    "items_descriptor_name": ["Test Product 2"],
+    "location_gps": "30.2670,-97.7433",
+    "raw_catalog": "{\"message\":{\"catalog\":{\"descriptor\":{\"name\":\"Test Catalog 2\"},\"providers\":[{\"id\":\"provider2\",\"descriptor\":{\"name\":\"Provider 2\"},\"locations\":[{\"id\":\"loc2\",\"gps\":\"30.2670,-97.7433\"}],\"items\":[{\"id\":\"test-product-2\",\"descriptor\":{\"name\":\"Test Product 2\"},\"price\":{\"value\":\"48\",\"currency\":\"USD\"}}]}]}}}"
+  }
+]

@@ -37,11 +37,14 @@ tasks.named('test') {
 }
 
 test {
+    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
     testLogging {
         events "passed", "skipped", "failed"
         showStandardStreams = true
         exceptionFormat = 'full'
     }
+    // Ensure output is flushed per test
+    outputs.upToDateWhen { false }
 }
 
 wrapper {

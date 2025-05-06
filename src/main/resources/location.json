@@ -1,0 +1,26 @@
+{
+  "location": {
+    "id": "string",
+    "descriptor": {
+      "name": "string",
+      "code": "string",
+      "short_desc": "string",
+      "long_desc": "string"
+    },
+    "address": "string",
+    "city": {
+      "name": "string",
+      "code": "string"
+    },
+    "district": "string",
+    "state": {
+      "name": "string",
+      "code": "string"
+    },
+    "country": {
+      "name": "string",
+      "code": "string"
+    },
+    "area_code": "string"
+  }
+}
