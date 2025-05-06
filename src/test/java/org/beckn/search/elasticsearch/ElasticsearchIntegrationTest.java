@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -276,5 +277,73 @@ class ElasticsearchIntegrationTest {
         if (providers.isArray()) {
             assertTrue(providers.size() > 0, "Should return at least one result");
         }
+    }
+
+    @Test
+    void testDomainWithColon() throws IOException {
+        // Create a search request with domain containing colon
+        SearchRequestDto request = new SearchRequestDto();
+        Context context = new Context();
+        context.setDomain("test:domain");
+        request.setContext(context);
+        
+        Message message = new Message();
+        Intent intent = new Intent();
+        message.setIntent(intent);
+        request.setMessage(message);
+
+        // First request should fail as index doesn't exist
+        assertThrows(IllegalArgumentException.class, () -> searchService.searchAndGetResponse(request, 0, 10, SearchQueryBuilder.LogicalOperator.AND));
+
+        // Create index with hyphenated name
+        String indexName = "test-domain";
+        createIndex(indexName);
+        indexTestData(indexName);
+
+        // Now search should work
+        SearchResponseDto response = searchService.searchAndGetResponse(request, 0, 10, SearchQueryBuilder.LogicalOperator.AND);
+        assertNotNull(response);
+        assertNotNull(response.getMessage());
+        assertNotNull(response.getMessage().getCatalog());
+        assertNotNull(response.getMessage().getCatalog().getProviders());
+    }
+
+    private void createIndex(String indexName) throws IOException {
+        if (!elasticsearchClient.indices().exists(e -> e.index(indexName)).value()) {
+            elasticsearchClient.indices().create(c -> c.index(indexName));
+        }
+    }
+
+    private void indexTestData(String indexName) throws IOException {
+        // Create test data
+        BulkRequest.Builder br = new BulkRequest.Builder();
+        
+        // Add test documents
+        Map<String, Object> doc1 = new HashMap<>();
+        doc1.put("provider_descriptor_name", "Provider 1");
+        doc1.put("items_descriptor_name", Arrays.asList("Test Product 1"));
+        doc1.put("raw_catalog", "{\"message\":{\"catalog\":{\"descriptor\":{\"name\":\"Test Catalog 1\"},\"providers\":[{\"id\":\"provider1\",\"descriptor\":{\"name\":\"Provider 1\"},\"items\":[{\"id\":\"test-product-1\",\"descriptor\":{\"name\":\"Test Product 1\"},\"price\":{\"value\":\"24\",\"currency\":\"USD\"}}]}]}}}");
+
+        Map<String, Object> doc2 = new HashMap<>();
+        doc2.put("provider_descriptor_name", "Provider 2");
+        doc2.put("items_descriptor_name", Arrays.asList("Test Product 2"));
+        doc2.put("raw_catalog", "{\"message\":{\"catalog\":{\"descriptor\":{\"name\":\"Test Catalog 2\"},\"providers\":[{\"id\":\"provider2\",\"descriptor\":{\"name\":\"Provider 2\"},\"items\":[{\"id\":\"test-product-2\",\"descriptor\":{\"name\":\"Test Product 2\"},\"price\":{\"value\":\"48\",\"currency\":\"USD\"}}]}]}}}");
+
+        br.operations(op -> op
+            .index(i -> i
+                .index(indexName)
+                .id("1")
+                .document(doc1)
+            )
+        ).operations(op -> op
+            .index(i -> i
+                .index(indexName)
+                .id("2")
+                .document(doc2)
+            )
+        );
+
+        elasticsearchClient.bulk(br.build());
+        elasticsearchClient.indices().refresh(r -> r.index(indexName));
     }
 } 

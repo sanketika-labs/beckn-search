@@ -47,7 +47,8 @@ public class SearchService {
             throw new IllegalArgumentException("Domain must be specified in the request context");
         }
         
-        String indexName = request.getContext().getDomain().toLowerCase();
+        // Get index name from domain, replace colons with hyphens
+        String indexName = request.getContext().getDomain().toLowerCase().replace(":", "-");
         
         // Check if index exists
         boolean indexExists = elasticsearchClient.indices().exists(e -> e.index(indexName)).value();
