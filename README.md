@@ -75,28 +75,43 @@ The application exposes the following endpoints:
 - **Response**: Search results with pagination
 
 Example request:
-```json
-{
-   "context": {
-      "domain": "deg:ev",
-      "transaction_id": "12345678-aaaa-bbbb-cccc-1234567890ab",
-      "message_id": "abcdef12-3456-7890-abcd-ef1234567890",
-      "timestamp": "2025-04-15T10:30:00Z"
-   },
-   "message": {
-      "intent": {
-         "providers": [
+```bash
+curl --request POST \
+  --url http://localhost:8080/api/v1/search \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "context": {
+    "domain": "deg:ev",
+    "transaction_id": "12345678-aaaa-bbbb-cccc-1234567890ab",
+    "message_id": "abcdef12-3456-7890-abcd-ef1234567890",
+    "timestamp": "2025-04-15T10:30:00Z"
+  },
+  "message": {
+    "intent": {
+      "providers": [
+        {
+          "fulfillments": [
             {
-               "fulfillments": [
-                  {
-                     "type": "onsite"
-                  }
-               ]
+              "type": "onsite"
             }
-         ]
-      }
-   }
-}
+          ],
+          "items": [
+            {
+              "descriptor": {
+                "name": "180kw charger"
+              }
+            }
+          ],
+          "locations": [
+            {
+              "gps": "30.2672,-97.7431"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}'
 ```
 
 ## Development
