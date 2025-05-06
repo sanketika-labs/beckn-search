@@ -241,7 +241,8 @@ class SearchControllerTest {
                 .content(sampleJson))
             .andDo(print())
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("Invalid request: Invalid operator. Must be either 'AND' or 'OR'"));
+            .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.error.message").value("Invalid operator. Must be either 'AND' or 'OR'"));
 
         // Verify the service was called
         verify(searchService).searchAndGetResponse(any(SearchRequestDto.class), eq("INVALID"));
@@ -256,7 +257,8 @@ class SearchControllerTest {
                 .content(sampleJson))
             .andDo(print())
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("Invalid request: Invalid request"));
+            .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.error.message").value("Invalid request"));
     }
 
     @Test
@@ -273,7 +275,8 @@ class SearchControllerTest {
                 .content(sampleJson))
             .andDo(print())
             .andExpect(status().isServiceUnavailable())
-            .andExpect(jsonPath("$.error").value("Search service temporarily unavailable"));
+            .andExpect(jsonPath("$.error.code").value("SERVICE_UNAVAILABLE"))
+            .andExpect(jsonPath("$.error.message").value("Search service temporarily unavailable"));
 
         // Verify the service was called
         verify(searchService).searchAndGetResponse(any(SearchRequestDto.class), eq("AND"));
