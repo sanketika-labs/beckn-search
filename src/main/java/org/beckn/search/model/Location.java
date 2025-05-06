@@ -15,6 +15,9 @@ public class Location {
     
     @JsonProperty("area_code")
     private String areaCode;
+    
+    @JsonProperty("gps")
+    private String gps;
 
     @Data
     public static class City {

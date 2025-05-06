@@ -1,0 +1,120 @@
+{
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+        "index.mapping.ignore_malformed": true
+    },
+    "mappings": {
+        "properties": {
+            "context_domain": {
+                "type": "keyword"
+            },
+            "context_bap_id": {
+                "type": "keyword"
+            },
+            "context_bap_uri": {
+                "type": "keyword"
+            },
+            "context_bpp_id": {
+                "type": "keyword"
+            },
+            "context_location_country_name": {
+                "type": "text"
+            },
+            "context_location_country_code": {
+                "type": "keyword"
+            },
+            "context_location_city_name": {
+                "type": "text"
+            },
+            "context_location_city_code": {
+                "type": "keyword"
+            },
+            "context_location_gps": {
+                "type": "geo_point"
+            },
+            "provider_id": {
+                "type": "keyword"
+            },
+            "provider_descriptor_name": {
+                "type": "text",
+                "fields": {
+                    "keyword": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "providers_locations_gps": {
+                "type": "geo_point"
+            },
+            "providers_locations_address": {
+                "type": "text"
+            },
+            "providers_locations_city_name": {
+                "type": "text"
+            },
+            "providers_locations_state_name": {
+                "type": "text"
+            },
+            "providers_locations_country_name": {
+                "type": "text"
+            },
+            "providers_locations_area_code": {
+                "type": "keyword"
+            },
+            "providers_fulfillments_id": {
+                "type": "keyword"
+            },
+            "providers_fulfillments_type": {
+                "type": "text"
+            },
+            "providers_fulfillments_rateable": {
+                "type": "boolean"
+            },
+            "items_id": {
+                "type": "keyword"
+            },
+            "items_descriptor_name": {
+                "type": "text",
+                "fields": {
+                    "keyword": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "items_descriptor_short_desc": {
+                "type": "text"
+            },
+            "items_price_value": {
+                "type": "float"
+            },
+            "items_price_currency": {
+                "type": "keyword"
+            },
+            "items_quantity_available_count": {
+                "type": "float"
+            },
+            "items_category_ids": {
+                "type": "keyword"
+            },
+            "items_fulfillment_ids": {
+                "type": "keyword"
+            },
+            "items_rating": {
+                "type": "float"
+            },
+            "items_tags_list_value": {
+                "type": "keyword"
+            },
+            "items_tags_list_descriptor_code": {
+                "type": "keyword"
+            },
+            "items_tags_list_descriptor_name": {
+                "type": "keyword"
+            },
+            "raw_catalog": {
+                "type": "keyword"
+            }
+        }
+    }
+}

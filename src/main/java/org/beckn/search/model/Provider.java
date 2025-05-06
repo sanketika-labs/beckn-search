@@ -2,6 +2,7 @@ package org.beckn.search.model;
 
 import jakarta.validation.Valid;
 import lombok.Data;
+import java.util.List;
 
 @Data
 public class Provider {
@@ -10,5 +11,9 @@ public class Provider {
     @Valid
     private Descriptor descriptor;
     
-    private java.util.List<Category> categories;
+    private List<Category> categories;
+    
+    private List<Location> locations;
+    
+    private List<Fulfillment> fulfillments;
 } 

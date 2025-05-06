@@ -26,19 +26,24 @@ public class SearchResponseTransformer {
 
     public SearchResponseDto transformToResponse(String rawCatalog) {
         if (rawCatalog == null || rawCatalog.trim().isEmpty()) {
-            SearchResponseDto errorResponse = new SearchResponseDto();
-            SearchResponseDto.Error error = new SearchResponseDto.Error();
-            error.setCode("NO_CATALOG_DATA");
-            error.setMessage("Raw catalog cannot be null or empty");
-            errorResponse.setError(error);
-            return errorResponse;
+            throw new IllegalArgumentException("Raw catalog cannot be null or empty");
         }
 
         try {
             JsonNode catalogNode = objectMapper.readTree(rawCatalog);
             
             // If we have an array of raw catalogs
-            if (catalogNode.isArray() && catalogNode.size() > 0) {
+            if (catalogNode.isArray()) {
+                if (catalogNode.size() == 0) {
+                    // Empty array
+                    SearchResponseDto errorResponse = new SearchResponseDto();
+                    SearchResponseDto.Error error = new SearchResponseDto.Error();
+                    error.setCode("NO_SEARCH_RESULTS");
+                    error.setMessage("No results found for the search criteria");
+                    errorResponse.setError(error);
+                    return errorResponse;
+                }
+                
                 // Create a new response
                 SearchResponseDto response = new SearchResponseDto();
                 SearchResponseDto.Message message = new SearchResponseDto.Message();
@@ -47,11 +52,13 @@ public class SearchResponseTransformer {
                 // Get the first catalog's descriptor if available
                 JsonNode firstCatalog = catalogNode.get(0);
                 if (firstCatalog != null) {
-                    SearchResponseDto firstResponse = objectMapper.readValue(firstCatalog.asText(), SearchResponseDto.class);
-                    if (firstResponse.getMessage() != null && 
-                        firstResponse.getMessage().getCatalog() != null && 
-                        firstResponse.getMessage().getCatalog().getDescriptor() != null) {
-                        catalog.setDescriptor(firstResponse.getMessage().getCatalog().getDescriptor());
+                    JsonNode firstCatalogJson = objectMapper.readTree(firstCatalog.asText());
+                    if (firstCatalogJson.has("message") && 
+                        firstCatalogJson.get("message").has("catalog") && 
+                        firstCatalogJson.get("message").get("catalog").has("descriptor")) {
+                        catalog.setDescriptor(objectMapper.treeToValue(
+                            firstCatalogJson.get("message").get("catalog").get("descriptor"),
+                            SearchResponseDto.Descriptor.class));
                     }
                 }
                 
@@ -61,11 +68,14 @@ public class SearchResponseTransformer {
                 // Process each raw catalog
                 for (JsonNode rawCatalogNode : catalogNode) {
                     // Parse each raw catalog
-                    SearchResponseDto catalogResponse = objectMapper.readValue(rawCatalogNode.asText(), SearchResponseDto.class);
+                    JsonNode catalogJson = objectMapper.readTree(rawCatalogNode.asText());
                     
                     // Get providers from this catalog and add them to the array
-                    JsonNode catalogProviders = catalogResponse.getMessage().getCatalog().getProviders();
-                    if (catalogProviders != null) {
+                    if (catalogJson.has("message") && 
+                        catalogJson.get("message").has("catalog") && 
+                        catalogJson.get("message").get("catalog").has("providers")) {
+                        
+                        JsonNode catalogProviders = catalogJson.get("message").get("catalog").get("providers");
                         if (catalogProviders.isArray()) {
                             // Process each provider
                             catalogProviders.forEach(provider -> {
@@ -109,24 +119,27 @@ public class SearchResponseTransformer {
                 }
                 
                 return response;
-            } else if (catalogNode.isArray()) {
-                // Empty array
-                SearchResponseDto errorResponse = new SearchResponseDto();
-                SearchResponseDto.Error error = new SearchResponseDto.Error();
-                error.setCode("NO_SEARCH_RESULTS");
-                error.setMessage("No results found for the search criteria");
-                errorResponse.setError(error);
-                return errorResponse;
             } else {
                 // Single raw catalog
-                SearchResponseDto response = objectMapper.readValue(rawCatalog, SearchResponseDto.class);
+                JsonNode catalogJson = objectMapper.readTree(rawCatalog);
+                SearchResponseDto response = new SearchResponseDto();
+                SearchResponseDto.Message message = new SearchResponseDto.Message();
+                SearchResponseDto.Catalog catalog = new SearchResponseDto.Catalog();
                 
-                // Ensure providers exist and items are arrays
-                if (response.getMessage() != null && 
-                    response.getMessage().getCatalog() != null && 
-                    response.getMessage().getCatalog().getProviders() != null) {
-                    
-                    JsonNode providers = response.getMessage().getCatalog().getProviders();
+                // Get catalog descriptor if available
+                if (catalogJson.has("message") && 
+                    catalogJson.get("message").has("catalog") && 
+                    catalogJson.get("message").get("catalog").has("descriptor")) {
+                    catalog.setDescriptor(objectMapper.treeToValue(
+                        catalogJson.get("message").get("catalog").get("descriptor"),
+                        SearchResponseDto.Descriptor.class));
+                }
+                
+                // Get providers
+                if (catalogJson.has("message") && 
+                    catalogJson.get("message").has("catalog") && 
+                    catalogJson.get("message").get("catalog").has("providers")) {
+                    JsonNode providers = catalogJson.get("message").get("catalog").get("providers");
                     if (providers.isArray()) {
                         // Process each provider
                         for (JsonNode provider : providers) {
@@ -135,12 +148,18 @@ public class SearchResponseTransformer {
                                 ((ObjectNode) provider).set("items", objectMapper.createArrayNode().add(items));
                             }
                         }
+                        catalog.setProviders(providers);
                     } else {
                         // Single provider
                         JsonNode items = providers.get("items");
                         if (items != null && !items.isArray()) {
                             ((ObjectNode) providers).set("items", objectMapper.createArrayNode().add(items));
                         }
+                        
+                        // Convert single provider to array
+                        ArrayNode providersArray = objectMapper.createArrayNode();
+                        providersArray.add(providers);
+                        catalog.setProviders(providersArray);
                     }
                 } else {
                     // No providers found
@@ -150,15 +169,12 @@ public class SearchResponseTransformer {
                     response.setError(error);
                 }
                 
+                message.setCatalog(catalog);
+                response.setMessage(message);
                 return response;
             }
         } catch (IOException e) {
-            SearchResponseDto errorResponse = new SearchResponseDto();
-            SearchResponseDto.Error error = new SearchResponseDto.Error();
-            error.setCode("TRANSFORM_ERROR");
-            error.setMessage("Failed to transform response: " + e.getMessage());
-            errorResponse.setError(error);
-            return errorResponse;
+            throw new RuntimeException("Failed to transform response: " + e.getMessage(), e);
         }
     }
 } 

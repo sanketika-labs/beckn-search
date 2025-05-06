@@ -1,119 +1,169 @@
 package org.beckn.search.elasticsearch;
 
-import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.MatchAllQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
-import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.beckn.search.model.Intent;
-import org.beckn.search.model.Location;
 import org.beckn.search.model.SearchRequestDto;
+import org.beckn.search.model.Location;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 public class SearchQueryBuilder {
     private final ObjectMapper objectMapper;
     
+    @Value("${search.geo.distance:1km}")
+    private String geoDistance;
+
     public enum LogicalOperator {
         AND, OR
     }
 
+    @Autowired
     public SearchQueryBuilder(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
     public Query buildSearchQuery(SearchRequestDto request, LogicalOperator operator) {
         // Return match_all query if request is empty
-        if (request.getMessage() == null || request.getMessage().getIntent() == null) {
+        if (request.getMessage() == null) {
             return MatchAllQuery.of(m -> m)._toQuery();
         }
 
         BoolQuery.Builder mainQuery = new BoolQuery.Builder();
         List<Query> queries = new ArrayList<>();
 
-        // Add intent filters
-        Map<String, Object> flattenedFields = flattenFields("", request.getMessage().getIntent());
-            
-        // Group queries by field type for boosting
-        List<Query> descriptorQueries = new ArrayList<>();
-        List<Query> nonDescriptorQueries = new ArrayList<>();
-            
-        for (Map.Entry<String, Object> entry : flattenedFields.entrySet()) {
-            System.out.println("Key = " + entry.getKey() + " Value = " + entry.getValue());
-            if (entry.getValue() != null) {
-                if (entry.getValue() instanceof List) {
-                    List<?> values = (List<?>) entry.getValue();
-                    if (!values.isEmpty()) {
-                        // For array fields, create a bool query with should clauses
-                        BoolQuery.Builder arrayQuery = new BoolQuery.Builder();
-                        for (Object value : values) {
-                            if (value != null) {
-                                Query matchQuery = MatchQuery.of(m -> m
-                                    .field(entry.getKey())
-                                    .query(value.toString())
-                                    .boost(2.0f))
-                                    ._toQuery();
-                                arrayQuery.should(matchQuery);
-                            }
-                        }
-                        // Add minimum_should_match parameter
-                        arrayQuery.minimumShouldMatch("1");
-                            
-                        // Add boost based on field type
-                        if (entry.getKey().contains("descriptor")) {
-                            descriptorQueries.add(arrayQuery.build()._toQuery());
-                        } else {
-                            nonDescriptorQueries.add(arrayQuery.build()._toQuery());
-                        }
-                    }
-                } else {
-                    Query matchQuery = MatchQuery.of(m -> m
-                        .field(entry.getKey())
-                        .query(entry.getValue().toString())
-                        .boost(entry.getKey().contains("descriptor") ? 2.0f : 1.0f))
-                        ._toQuery();
-                            
-                    if (entry.getKey().contains("descriptor")) {
-                        descriptorQueries.add(matchQuery);
-                    } else {
-                        nonDescriptorQueries.add(matchQuery);
+        // Handle context location if present
+        if (request.getContext() != null && request.getContext().getLocation() != null) {
+            Map<String, Object> contextLocationFields = flattenFields("context_location", request.getContext().getLocation());
+            System.out.println("Context Location Fields = " + contextLocationFields);
+            for (Map.Entry<String, Object> entry : contextLocationFields.entrySet()) {
+                String fieldName = entry.getKey();
+                if (fieldName.endsWith("_gps")) {
+                    String gpsValue = entry.getValue().toString();
+                    String[] coordinates = gpsValue.split(",");
+                    if (coordinates.length == 2) {
+                        double lat = Double.parseDouble(coordinates[0]);
+                        double lon = Double.parseDouble(coordinates[1]);
+                        Query geoQuery = GeoDistanceQuery.of(g -> g
+                                .field(fieldName)
+                                .distance("1km")
+                                .location(l -> l.text(lat + "," + lon)))._toQuery();
+                        queries.add(geoQuery);
                     }
                 }
             }
         }
-            
-        // Combine descriptor and non-descriptor queries with different boosts
-        if (!descriptorQueries.isEmpty()) {
-            BoolQuery.Builder descriptorBool = new BoolQuery.Builder();
-            if (operator == LogicalOperator.AND) {
-                descriptorBool.must(descriptorQueries);
-            } else {
-                descriptorBool.should(descriptorQueries)
-                    .minimumShouldMatch("1");
-            }
-            queries.add(descriptorBool.boost(2.0f).build()._toQuery());
-        }
-            
-        if (!nonDescriptorQueries.isEmpty()) {
-            BoolQuery.Builder nonDescriptorBool = new BoolQuery.Builder();
-            if (operator == LogicalOperator.AND) {
-                nonDescriptorBool.must(nonDescriptorQueries);
-            } else {
-                nonDescriptorBool.should(nonDescriptorQueries)
-                    .minimumShouldMatch("1");
-            }
-            queries.add(nonDescriptorBool.build()._toQuery());
-        }
 
-        // Add location filters if present
-        if (request.getContext() != null && request.getContext().getLocation() != null) {
-            addLocationFilters(request.getContext().getLocation(), queries);
+        // Handle intent if present
+        if (request.getMessage().getIntent() != null) {
+            // Flatten the intent object
+            Map<String, Object> flattenedFields = flattenFields("", request.getMessage().getIntent());
+            
+            // Group queries by field type for boosting
+            List<Query> descriptorQueries = new ArrayList<>();
+            List<Query> nonDescriptorQueries = new ArrayList<>();
+            
+            // Process each flattened field
+            for (Map.Entry<String, Object> entry : flattenedFields.entrySet()) {
+                String fieldName = entry.getKey();
+                Object value = entry.getValue();
+                
+                // Handle GPS fields
+                if (fieldName.toLowerCase().endsWith("_gps")) {
+                    System.out.println("GPS Field = " + fieldName);
+                    if (value != null) {
+                        String gpsValue = value instanceof List ? ((List<?>) value).get(0).toString() : value.toString();
+                        if (gpsValue.contains(",")) {
+                            Query geoQuery = buildGeoDistanceQuery(gpsValue, fieldName);
+                            if (geoQuery != null) {
+                                queries.add(geoQuery);
+                            }
+                        }
+                    }
+                    continue;
+                }
+                
+                // Handle fulfillment type
+                if (fieldName.equals("providers_fulfillments_type") || fieldName.equals("provider_fulfillments_type")) {
+                    if (value != null) {
+                        String fulfillmentType = value instanceof List ? ((List<?>) value).get(0).toString() : value.toString();
+                        Query matchQuery = MatchQuery.of(m -> m
+                            .field("providers_fulfillments_type")
+                            .query(fulfillmentType))
+                            ._toQuery();
+                        queries.add(matchQuery);
+                    }
+                    continue;
+                }
+                
+                if (value != null) {
+                    if (value instanceof List) {
+                        List<?> values = (List<?>) value;
+                        if (!values.isEmpty()) {
+                            // For array fields, create a bool query with should clauses
+                            BoolQuery.Builder arrayQuery = new BoolQuery.Builder();
+                            for (Object val : values) {
+                                if (val != null) {
+                                    Query matchQuery = MatchQuery.of(m -> m
+                                        .field(fieldName)
+                                        .query(val.toString())
+                                        .boost(fieldName.contains("descriptor") ? 2.0f : 1.0f))
+                                        ._toQuery();
+                                    arrayQuery.should(matchQuery);
+                                }
+                            }
+                            // Add minimum_should_match parameter
+                            arrayQuery.minimumShouldMatch("1");
+                            
+                            // Add to appropriate query list based on field type
+                            if (fieldName.contains("descriptor")) {
+                                descriptorQueries.add(arrayQuery.build()._toQuery());
+                            } else {
+                                nonDescriptorQueries.add(arrayQuery.build()._toQuery());
+                            }
+                        }
+                    } else {
+                        Query matchQuery = MatchQuery.of(m -> m
+                            .field(fieldName)
+                            .query(value.toString())
+                            .boost(fieldName.contains("descriptor") ? 2.0f : 1.0f))
+                            ._toQuery();
+                        
+                        if (fieldName.contains("descriptor")) {
+                            descriptorQueries.add(matchQuery);
+                        } else {
+                            nonDescriptorQueries.add(matchQuery);
+                        }
+                    }
+                }
+            }
+            
+            // Combine descriptor and non-descriptor queries with different boosts
+            if (!descriptorQueries.isEmpty()) {
+                BoolQuery.Builder descriptorBool = new BoolQuery.Builder();
+                if (operator == LogicalOperator.AND) {
+                    descriptorBool.must(descriptorQueries);
+                } else {
+                    descriptorBool.should(descriptorQueries)
+                        .minimumShouldMatch("1");
+                }
+                queries.add(descriptorBool.boost(2.0f).build()._toQuery());
+            }
+            
+            if (!nonDescriptorQueries.isEmpty()) {
+                BoolQuery.Builder nonDescriptorBool = new BoolQuery.Builder();
+                if (operator == LogicalOperator.AND) {
+                    nonDescriptorBool.must(nonDescriptorQueries);
+                } else {
+                    nonDescriptorBool.should(nonDescriptorQueries)
+                        .minimumShouldMatch("1");
+                }
+                queries.add(nonDescriptorBool.build()._toQuery());
+            }
         }
 
         // Combine all queries based on operator
@@ -142,6 +192,12 @@ public class SearchQueryBuilder {
         if (jsonNode.isObject()) {
             jsonNode.fields().forEachRemaining(entry -> {
                 String newPrefix = prefix.isEmpty() ? entry.getKey() : prefix + "_" + entry.getKey();
+                
+                // Special handling for provider/providers fields
+                if (entry.getKey().equals("provider") || entry.getKey().equals("providers")) {
+                    newPrefix = "providers";
+                }
+                
                 flattenFieldsRecursive(newPrefix, entry.getValue(), flattenedFields);
             });
         } else if (jsonNode.isArray()) {
@@ -153,9 +209,17 @@ public class SearchQueryBuilder {
                     Map<String, Object> elementFields = new HashMap<>();
                     flattenFieldsRecursive(prefix, element, elementFields);
                     
-                    // Merge fields into tempFields
+                    // For each field in the object, add its value to the corresponding list
                     elementFields.forEach((key, value) -> {
-                        tempFields.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+                        if (value instanceof List) {
+                            // If the value is already a list, add all its elements
+                            ((List<?>) value).forEach(v -> 
+                                tempFields.computeIfAbsent(key, k -> new ArrayList<>()).add(v)
+                            );
+                        } else {
+                            // Add single value to the list
+                            tempFields.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+                        }
                     });
                 } else if (!element.isNull()) {
                     values.add(element.asText());
@@ -170,7 +234,12 @@ public class SearchQueryBuilder {
             // Add collected object fields
             tempFields.forEach((key, value) -> {
                 if (!value.isEmpty()) {
-                    flattenedFields.put(key, value);
+                    // For GPS fields, always take the first value
+                    if (key.toLowerCase().endsWith("_gps")) {
+                        flattenedFields.put(key, value.get(0));
+                    } else {
+                        flattenedFields.put(key, value);
+                    }
                 }
             });
         } else if (!jsonNode.isNull()) {
@@ -178,37 +247,26 @@ public class SearchQueryBuilder {
         }
     }
 
-    private void addLocationFilters(Location location, List<Query> queries) {
-        // Add country filters
-        if (location.getCountry() != null) {
-            if (location.getCountry().getName() != null) {
-                queries.add(MatchQuery.of(m -> m
-                    .field("location_country_name")
-                    .query(location.getCountry().getName()))
-                    ._toQuery());
-            }
-            if (location.getCountry().getCode() != null) {
-                queries.add(MatchQuery.of(m -> m
-                    .field("location_country_code")
-                    .query(location.getCountry().getCode()))
-                    ._toQuery());
-            }
+    private Query buildGeoDistanceQuery(String gps, String gpsField) {
+        String[] coordinates = gps.split(",");
+        if (coordinates.length != 2) {
+            return null;
         }
-        
-        // Add city filters
-        if (location.getCity() != null) {
-            if (location.getCity().getName() != null) {
-                queries.add(MatchQuery.of(m -> m
-                    .field("location_city_name")
-                    .query(location.getCity().getName()))
-                    ._toQuery());
-            }
-            if (location.getCity().getCode() != null) {
-                queries.add(MatchQuery.of(m -> m
-                    .field("location_city_code")
-                    .query(location.getCity().getCode()))
-                    ._toQuery());
-            }
+
+        try {
+            double lat = Double.parseDouble(coordinates[0].trim());
+            double lon = Double.parseDouble(coordinates[1].trim());
+
+            return GeoDistanceQuery.of(g -> g
+                .field(gpsField)
+                .distance(geoDistance)
+                .location(l -> l.text(lat + "," + lon)))
+                ._toQuery();
+
+        } catch (NumberFormatException e) {
+            System.err.println("Invalid GPS coordinates: " + e.getMessage());
         }
+
+        return null;
     }
 } 

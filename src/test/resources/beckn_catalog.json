@@ -1,8 +1,16 @@
 {
     "context": {
         "domain": "retail",
-        "country": "IND",
-        "city": "std:080",
+        "location": {
+            "country": {
+                "name": "India",
+                "code": "IND"
+            },
+            "city": {
+                "name": "Bangalore",
+                "code": "std:080"
+            }
+        },
         "action": "search",
         "core_version": "1.0.0",
         "bap_id": "buyer-app.beckn.org",

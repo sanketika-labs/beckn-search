@@ -11,6 +11,9 @@ public class Intent {
     private Provider provider;
     
     @Valid
+    private List<Provider> providers;
+    
+    @Valid
     private List<Item> items;
 
     @Min(value = 0, message = "Page number must be 0 or greater")

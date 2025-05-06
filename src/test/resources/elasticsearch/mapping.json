@@ -28,8 +28,11 @@
       "location_city_code": {
         "type": "text"
       },
+      "location_gps": {
+        "type": "geo_point"
+      },
       "raw_catalog": {
-        "type": "keyword"
+        "type": "text"
       }
     }
   }
