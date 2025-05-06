@@ -27,10 +27,10 @@ public class SearchService {
     private final ObjectMapper objectMapper;
     private final SearchResponseTransformer responseTransformer;
 
-    @Value("${elasticsearch.max.results:100}")
+    @Value("${elasticsearch.max.results:1000}")
     private int maxResults;
 
-    @Value("${elasticsearch.default.page.size:10}")
+    @Value("${elasticsearch.default.page.size:100}")
     private int defaultPageSize;
 
     public SearchQueryBuilder.LogicalOperator parseOperator(String operator) {
