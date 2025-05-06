@@ -77,57 +77,23 @@ The application exposes the following endpoints:
 Example request:
 ```json
 {
-   "id": "api.catalog.search",
-   "ver": "v1",
-   "ts": "2024-04-10T16:10:50+05:30",
-   "params": {
-      "msgid": "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+   "context": {
+      "domain": "deg:ev",
+      "transaction_id": "12345678-aaaa-bbbb-cccc-1234567890ab",
+      "message_id": "abcdef12-3456-7890-abcd-ef1234567890",
+      "timestamp": "2025-04-15T10:30:00Z"
    },
-   "request": {
-      "context": {
-         "domain": "retail"
-      },
-      "search": {
-         "text": "coffee",
-         "geo_spatial": {
-            "distance": "1km",
-            "unit": "km",
-            "location": {
-               "lat": 40.758896,
-               "lon": -73.985130
-            }
-         },
-         "filters": [
+   "message": {
+      "intent": {
+         "providers": [
             {
-               "type": "and",
-               "fields": [
+               "fulfillments": [
                   {
-                     "type": "or",
-                     "fields": [
-                        { "name": "field1", "op": "eq", "value": "domain1" },
-                        {
-                           "type": "and",
-                           "fields": [
-                              { "name": "item.descriptor.name", "op": "eq", "value": "item1" },
-                              { "name": "tags", "op": "in", "value": ["tag1", "tag2"] }
-                           ]
-                        }
-                     ]
-                  },
-                  {
-                     "type": "and",
-                     "fields": [
-                        { "name": "field2", "op": "eq", "value": "value2" },
-                        { "name": "field3", "op": "lt", "value": "value3" }
-                     ]
+                     "type": "onsite"
                   }
                ]
             }
-         ],
-         "page": {
-            "from": 0,
-            "size": 10
-         }
+         ]
       }
    }
 }
@@ -141,30 +107,59 @@ Example request:
 src/
 ├── main/
 │   ├── java/
-│   │   └── org/beckn/
-│   │       ├── config/        # Configuration classes
-│   │       ├── controller/    # REST controllers
-│   │       ├── model/         # Data models
-│   │       ├── repository/    # Elasticsearch repositories
-│   │       └── service/       # Business logic
+│   │   └── org/beckn/search/
+│   │       ├── api/          # REST API controllers
+│   │       ├── elasticsearch/# Elasticsearch integration
+│   │       ├── model/        # Data models and DTOs
+│   │       ├── transformer/  # Response transformers
+│   │       └── validation/   # Request validators
 │   └── resources/
-│       └── application.yml    # Application configuration
-└── test/                      # Test classes
+│       ├── application.properties    # Application configuration
+│       └── mappings/                 # Elasticsearch mappings
+└── test/
+    ├── java/
+    │   └── org/beckn/search/
+    │       ├── api/          # Controller tests
+    │       ├── elasticsearch/# Elasticsearch integration tests
+    │       ├── model/        # Model tests
+    │       ├── transformer/  # Transformer tests
+    │       └── validation/   # Validator tests
+    └── resources/
+        └── mappings/         # Test mapping files
 ```
 
 ### Adding New Features
 
-1. Create new model classes in `src/main/java/org/beckn/model/`
-2. Add repository interfaces in `src/main/java/org/beckn/repository/`
-3. Implement service classes in `src/main/java/org/beckn/service/`
-4. Create controller endpoints in `src/main/java/org/beckn/controller/`
-5. Add corresponding test classes in `src/test/java/org/beckn/`
+1. Create new model classes in `src/main/java/org/beckn/search/model/`
+   - Add DTOs for request/response handling
+   - Use appropriate annotations for validation and JSON serialization
+
+2. Add Elasticsearch integration in `src/main/java/org/beckn/search/elasticsearch/`
+   - Implement search query builders
+   - Add index mappings in `src/main/resources/mappings/`
+
+3. Implement transformers in `src/main/java/org/beckn/search/transformer/`
+   - Add response transformation logic
+   - Handle data format conversions
+
+4. Add validation logic in `src/main/java/org/beckn/search/validation/`
+   - Implement request validators
+   - Add custom validation rules
+
+5. Create API endpoints in `src/main/java/org/beckn/search/api/`
+   - Implement REST controllers
+   - Add error handling
+
+6. Add corresponding test classes in `src/test/java/org/beckn/search/`
+   - Unit tests for models and transformers
+   - Integration tests for Elasticsearch
+   - API tests for controllers
 
 ## Troubleshooting
 
 1. **Elasticsearch Connection Issues**
    - Verify Elasticsearch is running
-   - Check the connection URL in `application.yml`
+   - Check the connection URL in `application.properties`
    - Ensure no firewall is blocking the connection
 
 2. **Build Issues**
@@ -172,7 +167,7 @@ src/
    - Refresh dependencies: `./gradlew --refresh-dependencies`
 
 3. **Application Startup Issues**
-   - Check the logs in `logs/application.log`
+   - Check the logs in `logs/beckn-search.log`
    - Verify all required services are running
    - Ensure all configuration properties are correct
 
