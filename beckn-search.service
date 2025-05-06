@@ -1,0 +1,17 @@
+[Unit]
+Description=Beckn Search API Application
+After=network.target
+
+[Service]
+User=ubuntu                      
+ExecStart=/usr/bin/java -jar /home/ubuntu/beckn/searchapp/beckn-search-1.0.0.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=JAVA_OPTS=-Xms512m -Xmx1024m
+
+[Install]
+WantedBy=multi-user.target
