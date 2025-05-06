@@ -39,8 +39,6 @@ public class SearchQueryBuilder {
 
         // Add intent filters
         Map<String, Object> flattenedFields = flattenFields("", request.getMessage().getIntent());
-        System.out.println("JSONNode = ");
-        System.out.println("Flattened Field Size = " + flattenedFields.size());
             
         // Group queries by field type for boosting
         List<Query> descriptorQueries = new ArrayList<>();
@@ -137,7 +135,6 @@ public class SearchQueryBuilder {
         Map<String, Object> flattenedFields = new HashMap<>();
         JsonNode jsonNode = objectMapper.valueToTree(object);
         flattenFieldsRecursive(prefix, jsonNode, flattenedFields);
-        System.out.println("JSONNode = " + jsonNode.asText());
         return flattenedFields;
     }
 
