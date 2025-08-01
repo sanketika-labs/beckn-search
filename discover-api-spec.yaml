@@ -1,0 +1,851 @@
+openapi: 3.0.3
+info:
+  title: Beckn Discover API
+  description: |
+    A unified discover API that handles multiple search request types through two endpoints:
+    - **POST /beckn/discover**: Handles structured JSON queries and natural language queries for discovering items, providers, and catalogs
+    - **GET /beckn/discover/browser-search**: Handles browser URL-based searches with content negotiation for HTML and JSON responses
+    
+    The API automatically detects request type and provides appropriate responses.
+  version: 1.0.0
+  contact:
+    name: Beckn Protocol
+    url: https://becknprotocol.io
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.catalog.beckn.org
+    description: Production server
+  - url: https://staging-api.catalog.beckn.org
+    description: Staging server
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /beckn/discover:
+    post:
+      summary: Beckn Discover API
+      description: |
+        Single endpoint that handles structured queries and natural language requests for discovering items, providers, and catalogs:
+        - **Structured Query**: JSON queries with filters, sorting, pagination
+        - **Natural Language**: Free-text queries with automatic processing
+        
+        Note: Browser URL-based searches are handled by the separate GET /beckn/discover/browser-search endpoint.
+              operationId: becknDiscoverPost
+      tags:
+        - Discover
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoverRequest'
+            examples:
+              structured_query_example:
+                summary: Structured Query Request
+                description: Structured query with filters and sorting
+                value:
+                  id: "api.beckn.discover"
+                  ver: "v1"
+                  ts: "2024-04-10T16:10:50+05:30"
+                  params:
+                    msgid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                    traceid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                  request:
+                    search:
+                      structured_query:
+                        context:
+                          domain_codes: ["energy"]
+                          entity_types: ["item"]
+                        query: "fast charging station"
+                        search_fields: ["descriptor.name", "descriptor.short_desc"]
+                        filters:
+                          operator: "and"
+                          conditions:
+                            - field: "rating.value"
+                              operator: "gte"
+                              value: 4.0
+                            - field: "categories.descriptor.name"
+                              operator: "array_contains"
+                              value: "ev_charging"
+                        fields: ["descriptor.name", "rating.value", "categories.descriptor.name"]
+                        pagination:
+                          page: 1
+                          limit: 20
+              natural_language_example:
+                summary: Natural Language Request
+                description: Free-text query with user context
+                value:
+                  id: "api.beckn.discover"
+                  ver: "v1"
+                  ts: "2024-04-10T16:10:50+05:30"
+                  params:
+                    msgid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                    traceid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                  request:
+                    search:
+                      natural_query: "I need a fast EV charging station near downtown with good ratings"
+                      user_context:
+                        language: "en"
+
+      responses:
+        '200':
+          description: Successful search response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverResponse'
+              examples:
+                structured_query_response:
+                  summary: Structured Query Response
+                  value:
+                    id: "api.beckn.discover"
+                    ver: "v1"
+                    ts: "2024-04-10T16:10:50+05:30"
+                    params:
+                      msgid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                      traceid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                    response:
+                      pagination:
+                        page: 1
+                        limit: 20
+                      results:
+                        - entity_type: "item"
+                          id: "item_001"
+                          score: 0.95
+                          data:
+                            id: "item_001"
+                            descriptor:
+                              name: "Tesla Supercharger Station"
+                              short_desc: "Fast DC charging station"
+                              long_desc: "Tesla Supercharger station with 250kW charging capability, supporting all Tesla models and compatible EVs with CCS adapters."
+                            rating:
+                              value: "4.8"
+                            categories:
+                              - id: "cat_001"
+                                descriptor:
+                                  name: "ev_charging"
+                            locations:
+                              - id: "loc_001"
+                                gps: "37.7749,-122.4194"
+                                address:
+                                  full: "123 Main St, San Francisco, CA 94102"
+                natural_language_response:
+                  summary: Natural Language Response
+                  value:
+                    id: "api.beckn.discover"
+                    ver: "v1"
+                    ts: "2024-04-10T16:10:50+05:30"
+                    params:
+                      msgid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                      traceid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                    response:
+                      pagination:
+                        page: 1
+                        limit: 20
+                      results:
+                        - entity_type: "item"
+                          id: "item_001"
+                          score: 0.98
+                          data:
+                            id: "item_001"
+                            descriptor:
+                              name: "ChargePoint Express 100"
+                              short_desc: "100kW DC fast charging station"
+                              long_desc: "ChargePoint Express 100 DC fast charging station with 100kW output, supporting CCS and CHAdeMO connectors for all EV models."
+                            rating:
+                              value: "4.8"
+                            price:
+                              value: 0.45
+                              currency: "USD"
+                            categories:
+                              - id: "cat_001"
+                                descriptor:
+                                  name: "ev_charging"
+                            locations:
+                              - id: "loc_001"
+                                gps: "37.7749,-122.4194"
+                                address:
+                                  full: "123 Main St, San Francisco, CA 94102"
+
+
+        '400':
+          description: Bad request - Invalid request format or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /beckn/discover/browser-search:
+    get:
+      summary: Browser Discover API
+      description: |
+        Handles browser URL-based searches with mandatory entity type specification.
+        Supports content negotiation for HTML and JSON responses.
+        No request body required - all parameters are passed as query parameters.
+              operationId: becknDiscoverBrowser
+      tags:
+        - Discover
+      parameters:
+        - name: entity_type
+          in: query
+          description: Type of entity to search for (required)
+          required: true
+          schema:
+            type: string
+            enum: [item, provider, catalog]
+        - name: item_id
+          in: query
+          description: Item identifier
+          required: false
+          schema:
+            type: string
+        - name: provider_id
+          in: query
+          description: Provider identifier
+          required: false
+          schema:
+            type: string
+        - name: catalog_id
+          in: query
+          description: Catalog identifier
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Category filter
+          required: false
+          schema:
+            type: string
+        - name: Accept
+          in: header
+          description: Content type preference
+          required: false
+          schema:
+            type: string
+            enum: [application/json, text/html]
+            default: text/html
+      responses:
+        '200':
+          description: Successful search response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverResponse'
+              example:
+                id: "api.beckn.discover"
+                ver: "v1"
+                ts: "2024-04-10T16:10:50+05:30"
+                params:
+                  msgid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                  traceid: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+                response:
+                  pagination:
+                    page: 1
+                    limit: 20
+                  results:
+                    - entity_type: "item"
+                      id: "item_456"
+                      score: 1.0
+                      data:
+                        id: "item_456"
+                        descriptor:
+                          name: "Electrify America 100kW Station"
+                          short_desc: "100kW DC fast charging"
+                          long_desc: "Electrify America 100kW DC fast charging station with CCS and CHAdeMO connectors, available 24/7 with contactless payment."
+                        rating:
+                          value: "4.8"
+                        provider:
+                          id: "provider_123"
+                          descriptor:
+                            name: "Electrify America"
+                        categories:
+                          - id: "cat_001"
+                            descriptor:
+                              name: "ev_charging"
+                        locations:
+                          - id: "loc_001"
+                            gps: "37.7749,-122.4194"
+                            address:
+                              full: "123 Main St, San Francisco, CA 94102"
+            text/html:
+              schema:
+                type: string
+                description: HTML response for browser display
+              example: |
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Search Results - Electrify America 100kW Station | Beckn Catalog</title>
+                    <meta name="description" content="Electrify America 100kW DC fast charging station - Available 24/7 with contactless payment.">
+                </head>
+                <body>
+                    <main>
+                        <section class="search-results">
+                            <div class="results-header">
+                                <h1>Electrify America 100kW Station</h1>
+                                <p>From Electrify America</p>
+                            </div>
+                            <div class="results-grid">
+                                <article class="result-item">
+                                    <h2>Electrify America 100kW Station</h2>
+                                    <p class="description">100kW DC fast charging station with CCS and CHAdeMO connectors</p>
+                                    <div class="rating">★★★★★ 4.8 (1,250 reviews)</div>
+                                    <div class="price">$0.45/kWh</div>
+                                    <div class="location">San Francisco, CA</div>
+                                </article>
+                            </div>
+                        </section>
+                    </main>
+                </body>
+                </html>
+        '400':
+          description: Bad request - Invalid URL parameters or missing entity_type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    DiscoverRequest:
+      type: object
+      required:
+        - id
+        - ver
+        - ts
+        - params
+        - request
+      properties:
+        id:
+          type: string
+          description: API identifier
+          example: "api.beckn.discover"
+        ver:
+          type: string
+          description: API version
+          example: "v1"
+        ts:
+          type: string
+          format: date-time
+          description: Timestamp of the request
+          example: "2024-04-10T16:10:50+05:30"
+        params:
+          $ref: '#/components/schemas/RequestParams'
+        request:
+          $ref: '#/components/schemas/DiscoverRequestData'
+
+    RequestParams:
+      type: object
+      required:
+        - msgid
+        - traceid
+      properties:
+        msgid:
+          type: string
+          format: uuid
+          description: Unique message identifier
+          example: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+        traceid:
+          type: string
+          format: uuid
+          description: Trace identifier for request tracking
+          example: "4a7f14c3-d61e-4d4f-be78-181834eeff6d"
+
+    DiscoverRequestData:
+      type: object
+      required:
+        - search
+      properties:
+        search:
+          $ref: '#/components/schemas/DiscoverData'
+
+    DiscoverData:
+      type: object
+      anyOf:
+        - required: [structured_query]
+          properties:
+            structured_query:
+              $ref: '#/components/schemas/StructuredQuery'
+            user_context:
+              $ref: '#/components/schemas/UserContext'
+        - required: [natural_query]
+          properties:
+            natural_query:
+              type: string
+              description: Natural language query text
+              example: "I need a fast EV charging station near downtown with good ratings"
+            user_context:
+              $ref: '#/components/schemas/UserContext'
+
+
+    StructuredQuery:
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/DiscoverContext'
+        query:
+          type: string
+          description: Text search query
+          example: "fast charging station"
+        search_fields:
+          type: array
+          items:
+            type: string
+          description: Fields to search in
+          example: ["descriptor.name", "descriptor.short_desc"]
+        filters:
+          $ref: '#/components/schemas/LogicalFilter'
+        geo_search:
+          $ref: '#/components/schemas/GeoSearch'
+        sort:
+          type: array
+          items:
+            $ref: '#/components/schemas/SortOption'
+        fields:
+          type: array
+          items:
+            type: string
+          description: Fields to return in response
+          example: ["descriptor.name", "rating.value"]
+        pagination:
+          $ref: '#/components/schemas/PaginationRequest'
+
+    DiscoverContext:
+      type: object
+      properties:
+        domain_codes:
+          type: array
+          items:
+            type: string
+          description: Domain codes to search in
+          example: ["energy", "mobility"]
+        entity_types:
+          type: array
+          items:
+            type: string
+            enum: [item, provider, catalog]
+          description: Entity types to search for
+          example: ["item", "provider"]
+
+    LogicalFilter:
+      type: object
+      required:
+        - operator
+        - conditions
+      properties:
+        operator:
+          type: string
+          enum: [and, or]
+          description: Logical operator for combining conditions
+        conditions:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/FieldFilter'
+              - $ref: '#/components/schemas/LogicalFilter'
+          description: Array of filter conditions
+
+    FieldFilter:
+      type: object
+      required:
+        - field
+        - operator
+        - value
+      properties:
+        field:
+          type: string
+          description: Field path using dot notation
+          example: "rating.value"
+        operator:
+          type: string
+          enum: [eq, ne, gt, gte, lt, lte, contains, starts_with, ends_with, array_contains, array_not_contains, exists, not_exists]
+          description: Filter operator
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+          description: Filter value
+
+    GeoSearch:
+      type: object
+      required:
+        - field
+        - location
+        - radius_km
+      properties:
+        field:
+          type: string
+          description: Field containing GPS coordinates
+          example: "locations.gps"
+        location:
+          $ref: '#/components/schemas/GeoLocation'
+        radius_km:
+          type: number
+          minimum: 0
+          description: Search radius in kilometers
+          example: 10
+
+    GeoLocation:
+      type: object
+      required:
+        - lat
+        - lng
+      properties:
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Latitude
+          example: 37.7749
+        lng:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Longitude
+          example: -122.4194
+
+    SortOption:
+      type: object
+      required:
+        - field
+        - order
+      properties:
+        field:
+          type: string
+          description: Field to sort by
+          example: "rating.value"
+        order:
+          type: string
+          enum: [asc, desc]
+          description: Sort order
+
+    PaginationRequest:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number
+          example: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+          description: Number of items per page
+          example: 20
+
+    UserContext:
+      type: object
+      properties:
+        language:
+          type: string
+          description: User's preferred language
+          example: "en"
+
+
+
+    DiscoverResponse:
+      type: object
+      required:
+        - id
+        - ver
+        - ts
+        - params
+        - response
+      properties:
+        id:
+          type: string
+          description: API identifier
+          example: "api.beckn.discover"
+        ver:
+          type: string
+          description: API version
+          example: "v1"
+        ts:
+          type: string
+          format: date-time
+          description: Timestamp of the response
+          example: "2024-04-10T16:10:50+05:30"
+        params:
+          $ref: '#/components/schemas/RequestParams'
+        response:
+          $ref: '#/components/schemas/DiscoverResponseData'
+
+    DiscoverResponseData:
+      type: object
+      required:
+        - pagination
+        - results
+      properties:
+
+
+        pagination:
+          $ref: '#/components/schemas/PaginationResponse'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoverResult'
+
+
+
+    PaginationResponse:
+      type: object
+      required:
+        - page
+        - limit
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          minimum: 1
+          description: Number of items per page
+          example: 20
+
+    DiscoverResult:
+      type: object
+      required:
+        - entity_type
+        - id
+        - score
+        - data
+      properties:
+        entity_type:
+          type: string
+          enum: [item, provider, catalog]
+          description: Type of entity
+        id:
+          type: string
+          description: Entity identifier
+          example: "item_001"
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Search relevance score
+          example: 0.95
+        data:
+          oneOf:
+            - $ref: '#/components/schemas/Item'
+            - $ref: '#/components/schemas/Provider'
+            - $ref: '#/components/schemas/Catalog'
+          description: Entity data based on schema
+
+
+    Item:
+      type: object
+      required:
+        - id
+        - descriptor
+      properties:
+        id:
+          type: string
+          description: Item identifier
+          example: "item_001"
+        descriptor:
+          $ref: '#/components/schemas/Descriptor'
+        rating:
+          $ref: '#/components/schemas/Rating'
+        price:
+          $ref: '#/components/schemas/Price'
+        provider:
+          $ref: '#/components/schemas/Provider'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+
+    Provider:
+      type: object
+      required:
+        - id
+        - descriptor
+      properties:
+        id:
+          type: string
+          description: Provider identifier
+          example: "provider_001"
+        descriptor:
+          $ref: '#/components/schemas/Descriptor'
+        rating:
+          $ref: '#/components/schemas/Rating'
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+
+    Catalog:
+      type: object
+      required:
+        - id
+        - descriptor
+      properties:
+        id:
+          type: string
+          description: Catalog identifier
+          example: "catalog_001"
+        descriptor:
+          $ref: '#/components/schemas/Descriptor'
+        provider:
+          $ref: '#/components/schemas/Provider'
+
+    Descriptor:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Entity name
+          example: "ChargePoint Express 100"
+        short_desc:
+          type: string
+          description: Short description
+          example: "100kW DC fast charging station"
+        long_desc:
+          type: string
+          description: Long description
+          example: "Tesla Model 3 is a battery electric mid-size sedan with fast acceleration, long range, and advanced autopilot features."
+
+    Rating:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: string
+          description: Rating value
+          example: "4.8"
+
+    Price:
+      type: object
+      required:
+        - value
+        - currency
+      properties:
+        value:
+          type: number
+          description: Price value
+          example: 45000
+        currency:
+          type: string
+          description: Currency code
+          example: "USD"
+
+    Category:
+      type: object
+      required:
+        - id
+        - descriptor
+      properties:
+        id:
+          type: string
+          description: Category identifier
+          example: "cat_001"
+        descriptor:
+          $ref: '#/components/schemas/Descriptor'
+
+    Location:
+      type: object
+      required:
+        - id
+        - gps
+      properties:
+        id:
+          type: string
+          description: Location identifier
+          example: "loc_001"
+        gps:
+          type: string
+          description: GPS coordinates
+          example: "37.7749,-122.4194"
+        address:
+          $ref: '#/components/schemas/Address'
+
+    Address:
+      type: object
+      properties:
+        full:
+          type: string
+          description: Full address
+          example: "123 Main St, San Francisco, CA 94102"
+
+    ErrorResponse:
+      type: object
+      required:
+        - id
+        - ver
+        - ts
+        - params
+        - error
+      properties:
+        id:
+          type: string
+          description: API identifier
+          example: "api.beckn.discover"
+        ver:
+          type: string
+          description: API version
+          example: "v1"
+        ts:
+          type: string
+          format: date-time
+          description: Timestamp of the error
+          example: "2024-04-10T16:10:50+05:30"
+        params:
+          $ref: '#/components/schemas/RequestParams'
+        error:
+          $ref: '#/components/schemas/Error'
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code
+          example: "INVALID_REQUEST"
+        message:
+          type: string
+          description: Error message
+          example: "Invalid request format"
+        path:
+          type: string
+          description: Path to the error
+          example: "request.search.structured_query.query"
+
+tags:
+  - name: Discover
+    description: Multi-modal discover operations
+
+externalDocs:
+  description: Beckn Protocol Documentation
+  url: https://docs.becknprotocol.io 
